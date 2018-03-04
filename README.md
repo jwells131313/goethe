@@ -37,8 +37,8 @@
 [//]: # " holder. "
 
 goth
+![goth](https://github.com/jwells131313/goth/blob/master/images/goth.jpg "Go Thread Utilities")
 ===
-![alt text](https://github.com/jwells131313/dargo/images/goth.jpg "Go Thread Utilities")
 
 Threading utilities for GO
 
