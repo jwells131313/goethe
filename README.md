@@ -38,6 +38,7 @@
 
 goth
 ===
+![alt text](https://github.com/jwells131313/dargo/images/goth.jpg "Go Thread Utilities")
 
 Threading utilities for GO
 
