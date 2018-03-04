@@ -47,17 +47,17 @@ type gothData struct {
 	
 }
 
-var globalGoth = NewGoth()
+var globalGoth api.Goth = newGoth()
 
 func newGoth() api.Goth {
 	retVal := &gothData{}
 	return retVal
 }
 
+// GetGoth returns the systems goth global
 func GetGoth() api.Goth {
 	return globalGoth
 }
 
-func (goth *gothData) Go(callMe func(...interface{}), values ...interface{}) {
-	return
+func (goth *gothData) Go(_ func(...interface{}), _ ...interface{}) {
 }
