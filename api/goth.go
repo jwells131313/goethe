@@ -46,5 +46,5 @@ type Goth interface {
   // Go Runs the given function with the given parameters
   // in a new go thread.  Will always allocate a new
   // thread-id
-  Go(func(...interface{}), ...interface{})
+  Go(func())
 }

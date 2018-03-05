@@ -40,24 +40,18 @@ package utilities
  */
 
 import (
-  "github.com/goth/api"
+    "testing"
 )
 
-type gothData struct {
+func TestGothFactory(t *testing.T) {
+	goth := GetGoth()
+	if goth == nil {
+		t.Errorf("We did not get a goth")
+		return
+	}
 	
+	goth.Go(func() {
+			t.Log("Hello World!")
+		})
 }
 
-var globalGoth api.Goth = newGoth()
-
-func newGoth() api.Goth {
-	retVal := &gothData{}
-	return retVal
-}
-
-// GetGoth returns the systems goth global
-func GetGoth() api.Goth {
-	return globalGoth
-}
-
-func (goth *gothData) Go(_ func()) {
-}
