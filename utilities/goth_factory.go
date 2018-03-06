@@ -42,6 +42,9 @@ package utilities
 import (
 	"sync"
     "github.com/goth/api"
+    "runtime/debug"
+    "fmt"
+    "strings"
 )
 
 type gothData struct {
@@ -75,14 +78,158 @@ func (goth *gothData) getAndIncrementTid() int64 {
 func (goth *gothData) Go(userCall func() error) {
 	tid := goth.getAndIncrementTid()
 	
-	go invoke(tid, userCall)
+	go invokeStart(tid, userCall)
 }
 
 func (goth *gothData) GetThreadID() int64 {
+	stackAsBytes := debug.Stack()
+	stackAsString := string(stackAsBytes)
 	
-	panic("GetThreadID not yet implemented")
+	tokenized := strings.Split(stackAsString, "__TidFrame")
+	
+	var tidHexString string = ""
+	first := true
+	for _, tok := range tokenized {
+		if first {
+			first = false
+		} else {
+		    tidHexString = string(tok[0]) + tidHexString
+		}
+	}
+	
+	var result int
+	
+	fmt.Sscanf(tidHexString, "%X", &result)
+	
+	return int64(result)
 }
 
-func invoke(tid int64, userCall func() error) error {
+// convertToNibbles returns the nibbles of the string
+func convertToNibbles(tid int64) []byte {
+	if tid < 0 {
+		panic("The tid must not be negative")
+	}
+	
+	asString := fmt.Sprintf("%x", tid)
+	return []byte(asString)
+}
+
+func invokeStart(tid int64, userCall func() error) error {
+	nibbles := convertToNibbles(tid)
+	
+	return internalInvoke(0, nibbles, userCall)
+}
+
+func invokeEnd(userCall func() error) error {
 	return userCall()
+}
+
+func internalInvoke(index int, nibbles []byte, userCall func() error) error {
+	if index >= len(nibbles) {
+		return invokeEnd(userCall)
+	}
+	
+	currentFrame := nibbles[index]
+	switch currentFrame {
+		case byte('0'):
+		  return __TidFrame0(index, nibbles, userCall)
+	    case byte('1'):
+	      return __TidFrame1(index, nibbles, userCall)
+        case byte('2'):
+	      return __TidFrame2(index, nibbles, userCall)
+        case byte('3'):
+          return __TidFrame3(index, nibbles, userCall)
+        case byte('4'):
+		  return __TidFrame4(index, nibbles, userCall)
+	    case byte('5'):
+	      return __TidFrame5(index, nibbles, userCall)
+        case byte('6'):
+	      return __TidFrame6(index, nibbles, userCall)
+        case byte('7'):
+          return __TidFrame7(index, nibbles, userCall)
+        case byte('8'):
+		  return __TidFrame8(index, nibbles, userCall)
+	    case byte('9'):
+	      return __TidFrame9(index, nibbles, userCall)
+        case byte('a'):
+	      return __TidFrameA(index, nibbles, userCall)
+        case byte('b'):
+          return __TidFrameB(index, nibbles, userCall)
+        case byte('c'):
+		  return __TidFrameC(index, nibbles, userCall)
+	    case byte('d'):
+	      return __TidFrameD(index, nibbles, userCall)
+        case byte('e'):
+	      return __TidFrameE(index, nibbles, userCall)
+        case byte('f'):
+          return __TidFrameF(index, nibbles, userCall)
+        default:
+          panic("not yet implemented")
+		  
+	}
+	
+}
+
+func __TidFrame0(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame1(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame2(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame3(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame4(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame5(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame6(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame7(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame8(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrame9(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameA(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameB(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameC(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameD(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameE(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
+}
+
+func __TidFrameF(index int, nibbles []byte, userCall func() error) error {
+	return internalInvoke(index + 1, nibbles, userCall)
 }
