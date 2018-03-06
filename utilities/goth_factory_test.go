@@ -59,10 +59,30 @@ func TestGothFactory(t *testing.T) {
 			return nil
 		})
 	
-	foundTid := <- channel
-	if foundTid <= 9 {
-		t.Error("The tid for the function was less than or equal to 9, an error", foundTid)
+	goth.Go(func() error {
+			tid := goth.GetThreadID()
+			channel <- tid
+			
+			return nil
+		})
+	
+	foundTid1 := <- channel
+	if foundTid1 <= 9 {
+		t.Error("The tid for the function was less than or equal to 9, an error", foundTid1)
 		return
 	}
+	
+	foundTid2 := <- channel
+	if foundTid2 <= 9 {
+		t.Error("The tid for the function was less than or equal to 9, an error", foundTid2)
+		return
+	}
+	
+	if foundTid1 == foundTid2 {
+		t.Error("Tids should not be the same, got", foundTid1)
+		return
+	}
+	
+	t.Logf("Got tids %v,%v", foundTid1, foundTid2)
 }
 
