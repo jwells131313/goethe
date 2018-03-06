@@ -46,12 +46,23 @@ import (
 func TestGothFactory(t *testing.T) {
 	goth := GetGoth()
 	if goth == nil {
-		t.Errorf("We did not get a goth")
+		t.Error("We did not get a goth")
 		return
 	}
 	
-	goth.Go(func() {
-			t.Log("Hello World!")
+	var channel chan int64 = make(chan int64)
+	
+	goth.Go(func() error {
+			tid := goth.GetThreadID()
+			channel <- tid
+			
+			return nil
 		})
+	
+	foundTid := <- channel
+	if foundTid <= 9 {
+		t.Error("The tid for the function was less than or equal to 9, an error", foundTid)
+		return
+	}
 }
 

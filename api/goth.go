@@ -46,5 +46,10 @@ type Goth interface {
   // Go Runs the given function with the given parameters
   // in a new go thread.  Will always allocate a new
   // thread-id
-  Go(func())
+  Go(func() error)
+  
+  // GetthreadID Gets the current threadID.  Returns -1
+  // if this is not a goth thread.  Thread ids start at 10
+  // as thread ids 0 through 9 are reserved for future use
+  GetThreadID() int64
 }

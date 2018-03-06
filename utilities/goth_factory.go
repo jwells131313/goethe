@@ -40,17 +40,22 @@ package utilities
  */
 
 import (
-  "github.com/goth/api"
+	"sync"
+    "github.com/goth/api"
 )
 
 type gothData struct {
-	
+	tidMux sync.Mutex
+	lastTid int64
 }
 
 var globalGoth api.Goth = newGoth()
 
 func newGoth() api.Goth {
-	retVal := &gothData{}
+	retVal := &gothData{
+		lastTid: 9,
+	}
+	
 	return retVal
 }
 
@@ -59,5 +64,25 @@ func GetGoth() api.Goth {
 	return globalGoth
 }
 
-func (goth *gothData) Go(_ func()) {
+func (goth *gothData) getAndIncrementTid() int64 {
+	goth.tidMux.Lock()
+	defer goth.tidMux.Unlock()
+	
+	goth.lastTid++
+	return goth.lastTid
+}
+
+func (goth *gothData) Go(userCall func() error) {
+	tid := goth.getAndIncrementTid()
+	
+	go invoke(tid, userCall)
+}
+
+func (goth *gothData) GetThreadID() int64 {
+	
+	panic("GetThreadID not yet implemented")
+}
+
+func invoke(tid int64, userCall func() error) error {
+	return userCall()
 }
