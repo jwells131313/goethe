@@ -85,9 +85,9 @@ func (goth *gothData) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)
 	
-	tokenized := strings.Split(stackAsString, "__TidFrame")
+	tokenized := strings.Split(stackAsString, "xXTidFrame")
 	
-	var tidHexString string = ""
+	var tidHexString string
 	first := true
 	for _, tok := range tokenized {
 		if first {
@@ -132,37 +132,37 @@ func internalInvoke(index int, nibbles []byte, userCall func() error) error {
 	currentFrame := nibbles[index]
 	switch currentFrame {
 		case byte('0'):
-		  return __TidFrame0(index, nibbles, userCall)
+		  return xXTidFrame0(index, nibbles, userCall)
 	    case byte('1'):
-	      return __TidFrame1(index, nibbles, userCall)
+	      return xXTidFrame1(index, nibbles, userCall)
         case byte('2'):
-	      return __TidFrame2(index, nibbles, userCall)
+	      return xXTidFrame2(index, nibbles, userCall)
         case byte('3'):
-          return __TidFrame3(index, nibbles, userCall)
+          return xXTidFrame3(index, nibbles, userCall)
         case byte('4'):
-		  return __TidFrame4(index, nibbles, userCall)
+		  return xXTidFrame4(index, nibbles, userCall)
 	    case byte('5'):
-	      return __TidFrame5(index, nibbles, userCall)
+	      return xXTidFrame5(index, nibbles, userCall)
         case byte('6'):
-	      return __TidFrame6(index, nibbles, userCall)
+	      return xXTidFrame6(index, nibbles, userCall)
         case byte('7'):
-          return __TidFrame7(index, nibbles, userCall)
+          return xXTidFrame7(index, nibbles, userCall)
         case byte('8'):
-		  return __TidFrame8(index, nibbles, userCall)
+		  return xXTidFrame8(index, nibbles, userCall)
 	    case byte('9'):
-	      return __TidFrame9(index, nibbles, userCall)
+	      return xXTidFrame9(index, nibbles, userCall)
         case byte('a'):
-	      return __TidFrameA(index, nibbles, userCall)
+	      return xXTidFrameA(index, nibbles, userCall)
         case byte('b'):
-          return __TidFrameB(index, nibbles, userCall)
+          return xXTidFrameB(index, nibbles, userCall)
         case byte('c'):
-		  return __TidFrameC(index, nibbles, userCall)
+		  return xXTidFrameC(index, nibbles, userCall)
 	    case byte('d'):
-	      return __TidFrameD(index, nibbles, userCall)
+	      return xXTidFrameD(index, nibbles, userCall)
         case byte('e'):
-	      return __TidFrameE(index, nibbles, userCall)
+	      return xXTidFrameE(index, nibbles, userCall)
         case byte('f'):
-          return __TidFrameF(index, nibbles, userCall)
+          return xXTidFrameF(index, nibbles, userCall)
         default:
           panic("not yet implemented")
 		  
@@ -170,66 +170,66 @@ func internalInvoke(index int, nibbles []byte, userCall func() error) error {
 	
 }
 
-func __TidFrame0(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame0(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame1(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame1(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame2(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame2(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame3(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame3(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame4(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame4(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame5(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame5(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame6(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame6(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame7(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame7(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame8(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame8(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrame9(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrame9(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameA(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameA(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameB(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameB(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameC(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameC(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameD(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameD(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameE(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameE(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }
 
-func __TidFrameF(index int, nibbles []byte, userCall func() error) error {
+func xXTidFrameF(index int, nibbles []byte, userCall func() error) error {
 	return internalInvoke(index + 1, nibbles, userCall)
 }

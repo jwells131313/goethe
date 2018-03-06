@@ -50,7 +50,7 @@ func TestGothFactory(t *testing.T) {
 		return
 	}
 	
-	var channel chan int64 = make(chan int64)
+	channel := make(chan int64)
 	
 	goth.Go(func() error {
 			tid := goth.GetThreadID()
