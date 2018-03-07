@@ -41,6 +41,41 @@ goth
 
 Threading utilities for GO
 
-Under construction, Pre-Alpha version
+Usage
+-----
+
+Runs a method under a thread and allows you to get a thread-id without having to
+pass a context around everywhere.
+
+```go
+import "github.com/jwells131313/goth/utilities"
+import "github.com/jwells131313/goth/api"
+
+goth := utilities.GetGoth()
+
+channel := make(chan int64)
+
+goth.Go(func() error {
+    // A thread ID!  Oh no, we've broken Go!
+    tid := goth.GetThreadID()
+    
+    // Tell momma about our thread-id
+    channel <- tid
+    
+    return nil
+})
+
+threadID := <- channel
+```
+
+Of course, were this to be your actual code your thread would go off into its own little world doing
+good things for all and never, ever biting the heads of bats or anything like that.
+
+In the future it is intended for goth to provide the following:
+
+* Thread Local Storage (it *can* be done!)
+* Thread pools
+
+It's a nice day for a white wedding
 
 ![](https://github.com/jwells131313/goth/blob/master/images/goth.jpg "Go Thread Utilities")
