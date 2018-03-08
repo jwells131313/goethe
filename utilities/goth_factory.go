@@ -1,4 +1,3 @@
-package utilities
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
@@ -39,9 +38,11 @@ package utilities
  * holder.
  */
 
+package utilities
+
 import (
 	"sync"
-    "github.com/goth/api"
+    "github.com/jwells131313/goth"
     "runtime/debug"
     "fmt"
     "strings"
@@ -52,9 +53,9 @@ type gothData struct {
 	lastTid int64
 }
 
-var globalGoth api.Goth = newGoth()
+var globalGoth goth.Goth = newGoth()
 
-func newGoth() api.Goth {
+func newGoth() goth.Goth {
 	retVal := &gothData{
 		lastTid: 9,
 	}
@@ -63,7 +64,7 @@ func newGoth() api.Goth {
 }
 
 // GetGoth returns the systems goth global
-func GetGoth() api.Goth {
+func GetGoth() goth.Goth {
 	return globalGoth
 }
 

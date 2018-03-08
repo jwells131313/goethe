@@ -1,4 +1,3 @@
-package api
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
@@ -38,6 +37,8 @@ package api
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
+
+package goth
 
 // Goth a service which runs your routines in threads
 // that can have things such as threadIds and thread

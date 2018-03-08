@@ -42,7 +42,7 @@ box:
 
 # Build definition
 build:
-  base-path: /go/src/github.com/goth
+  base-path: /go/src/github.com/jwells131313/goth
   
   # The steps that will be executed on build
   steps:
