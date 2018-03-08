@@ -41,15 +41,15 @@
 package utilities
 
 import (
+	"fmt"
+	"github.com/jwells131313/goth"
+	"runtime/debug"
+	"strings"
 	"sync"
-    "github.com/jwells131313/goth"
-    "runtime/debug"
-    "fmt"
-    "strings"
 )
 
 type gothData struct {
-	tidMux sync.Mutex
+	tidMux  sync.Mutex
 	lastTid int64
 }
 
@@ -59,7 +59,7 @@ func newGoth() goth.Goth {
 	retVal := &gothData{
 		lastTid: 9,
 	}
-	
+
 	return retVal
 }
 
@@ -71,37 +71,37 @@ func GetGoth() goth.Goth {
 func (goth *gothData) getAndIncrementTid() int64 {
 	goth.tidMux.Lock()
 	defer goth.tidMux.Unlock()
-	
+
 	goth.lastTid++
 	return goth.lastTid
 }
 
 func (goth *gothData) Go(userCall func() error) {
 	tid := goth.getAndIncrementTid()
-	
+
 	go invokeStart(tid, userCall)
 }
 
 func (goth *gothData) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)
-	
+
 	tokenized := strings.Split(stackAsString, "xXTidFrame")
-	
+
 	var tidHexString string
 	first := true
 	for _, tok := range tokenized {
 		if first {
 			first = false
 		} else {
-		    tidHexString = string(tok[0]) + tidHexString
+			tidHexString = string(tok[0]) + tidHexString
 		}
 	}
-	
+
 	var result int
-	
+
 	fmt.Sscanf(tidHexString, "%X", &result)
-	
+
 	return int64(result)
 }
 
@@ -110,14 +110,14 @@ func convertToNibbles(tid int64) []byte {
 	if tid < 0 {
 		panic("The tid must not be negative")
 	}
-	
+
 	asString := fmt.Sprintf("%x", tid)
 	return []byte(asString)
 }
 
 func invokeStart(tid int64, userCall func() error) error {
 	nibbles := convertToNibbles(tid)
-	
+
 	return internalInvoke(0, nibbles, userCall)
 }
 
@@ -129,108 +129,108 @@ func internalInvoke(index int, nibbles []byte, userCall func() error) error {
 	if index >= len(nibbles) {
 		return invokeEnd(userCall)
 	}
-	
+
 	currentFrame := nibbles[index]
 	switch currentFrame {
-		case byte('0'):
-		  return xXTidFrame0(index, nibbles, userCall)
-	    case byte('1'):
-	      return xXTidFrame1(index, nibbles, userCall)
-        case byte('2'):
-	      return xXTidFrame2(index, nibbles, userCall)
-        case byte('3'):
-          return xXTidFrame3(index, nibbles, userCall)
-        case byte('4'):
-		  return xXTidFrame4(index, nibbles, userCall)
-	    case byte('5'):
-	      return xXTidFrame5(index, nibbles, userCall)
-        case byte('6'):
-	      return xXTidFrame6(index, nibbles, userCall)
-        case byte('7'):
-          return xXTidFrame7(index, nibbles, userCall)
-        case byte('8'):
-		  return xXTidFrame8(index, nibbles, userCall)
-	    case byte('9'):
-	      return xXTidFrame9(index, nibbles, userCall)
-        case byte('a'):
-	      return xXTidFrameA(index, nibbles, userCall)
-        case byte('b'):
-          return xXTidFrameB(index, nibbles, userCall)
-        case byte('c'):
-		  return xXTidFrameC(index, nibbles, userCall)
-	    case byte('d'):
-	      return xXTidFrameD(index, nibbles, userCall)
-        case byte('e'):
-	      return xXTidFrameE(index, nibbles, userCall)
-        case byte('f'):
-          return xXTidFrameF(index, nibbles, userCall)
-        default:
-          panic("not yet implemented")
-		  
+	case byte('0'):
+		return xXTidFrame0(index, nibbles, userCall)
+	case byte('1'):
+		return xXTidFrame1(index, nibbles, userCall)
+	case byte('2'):
+		return xXTidFrame2(index, nibbles, userCall)
+	case byte('3'):
+		return xXTidFrame3(index, nibbles, userCall)
+	case byte('4'):
+		return xXTidFrame4(index, nibbles, userCall)
+	case byte('5'):
+		return xXTidFrame5(index, nibbles, userCall)
+	case byte('6'):
+		return xXTidFrame6(index, nibbles, userCall)
+	case byte('7'):
+		return xXTidFrame7(index, nibbles, userCall)
+	case byte('8'):
+		return xXTidFrame8(index, nibbles, userCall)
+	case byte('9'):
+		return xXTidFrame9(index, nibbles, userCall)
+	case byte('a'):
+		return xXTidFrameA(index, nibbles, userCall)
+	case byte('b'):
+		return xXTidFrameB(index, nibbles, userCall)
+	case byte('c'):
+		return xXTidFrameC(index, nibbles, userCall)
+	case byte('d'):
+		return xXTidFrameD(index, nibbles, userCall)
+	case byte('e'):
+		return xXTidFrameE(index, nibbles, userCall)
+	case byte('f'):
+		return xXTidFrameF(index, nibbles, userCall)
+	default:
+		panic("not yet implemented")
+
 	}
-	
+
 }
 
 func xXTidFrame0(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame1(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame2(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame3(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame4(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame5(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame6(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame7(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame8(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrame9(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameA(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameB(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameC(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameD(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameE(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }
 
 func xXTidFrameF(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index + 1, nibbles, userCall)
+	return internalInvoke(index+1, nibbles, userCall)
 }

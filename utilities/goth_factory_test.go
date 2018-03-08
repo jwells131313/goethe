@@ -1,4 +1,5 @@
 package utilities
+
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
@@ -40,7 +41,7 @@ package utilities
  */
 
 import (
-    "testing"
+	"testing"
 )
 
 func TestGothFactory(t *testing.T) {
@@ -49,40 +50,39 @@ func TestGothFactory(t *testing.T) {
 		t.Error("We did not get a goth")
 		return
 	}
-	
+
 	channel := make(chan int64)
-	
+
 	goth.Go(func() error {
-			tid := goth.GetThreadID()
-			channel <- tid
-			
-			return nil
-		})
-	
+		tid := goth.GetThreadID()
+		channel <- tid
+
+		return nil
+	})
+
 	goth.Go(func() error {
-			tid := goth.GetThreadID()
-			channel <- tid
-			
-			return nil
-		})
-	
-	foundTid1 := <- channel
+		tid := goth.GetThreadID()
+		channel <- tid
+
+		return nil
+	})
+
+	foundTid1 := <-channel
 	if foundTid1 <= 9 {
 		t.Error("The tid for the function was less than or equal to 9, an error", foundTid1)
 		return
 	}
-	
-	foundTid2 := <- channel
+
+	foundTid2 := <-channel
 	if foundTid2 <= 9 {
 		t.Error("The tid for the function was less than or equal to 9, an error", foundTid2)
 		return
 	}
-	
+
 	if foundTid1 == foundTid2 {
 		t.Error("Tids should not be the same, got", foundTid1)
 		return
 	}
-	
+
 	t.Logf("Got tids %v,%v", foundTid1, foundTid2)
 }
-
