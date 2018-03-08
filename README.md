@@ -49,7 +49,7 @@ pass a context around everywhere.
 
 ```go
 import "github.com/jwells131313/goth/utilities"
-import "github.com/jwells131313/goth/api"
+import "github.com/jwells131313/goth"
 
 goth := utilities.GetGoth()
 
