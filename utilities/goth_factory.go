@@ -43,6 +43,7 @@ package utilities
 import (
 	"fmt"
 	"github.com/jwells131313/goth"
+	"github.com/jwells131313/goth/internal"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -90,12 +91,18 @@ func (goth *gothData) GetThreadID() int64 {
 
 	var tidHexString string
 	first := true
+	gotOne := false
 	for _, tok := range tokenized {
 		if first {
 			first = false
 		} else {
+			gotOne = true
 			tidHexString = string(tok[0]) + tidHexString
 		}
+	}
+
+	if !gotOne {
+		return -1
 	}
 
 	var result int
@@ -103,6 +110,10 @@ func (goth *gothData) GetThreadID() int64 {
 	fmt.Sscanf(tidHexString, "%X", &result)
 
 	return int64(result)
+}
+
+func (goth *gothData) NewGothLock() goth.Lock {
+	return internal.NewReaderWriterLock()
 }
 
 // convertToNibbles returns the nibbles of the string

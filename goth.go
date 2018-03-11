@@ -53,4 +53,37 @@ type Goth interface {
 	// if this is not a goth thread.  Thread ids start at 10
 	// as thread ids 0 through 9 are reserved for future use
 	GetThreadID() int64
+
+	// NewGothLock Creates a new goth lock
+	NewGothLock() Lock
+}
+
+// Lock is a reader/writer lock that is a counting lock
+// There can be multiple readers at the same time but only
+// one writer.  You CAN get a reader lock while inside a write
+// lock.  No readers will be allowed in while a write-lock
+// is waiting to get in.  If you just use the WriteLock calls
+// this behaves like a counting mutex
+type Lock interface {
+	// ReadLock Locks for read.  Multiple readers on multiple threads
+	// are allowed in simultaneously.  Is counting, but all locks must
+	// be paired with ReadUnlock.  You may get a ReadLock while holding
+	// a WriteLock.  May only be called from inside a Goth thread
+	ReadLock() error
+
+	// ReadUnlock unlocks the read lock.  Will only truly leave
+	// critical section as reader when count is zero
+	ReadUnlock() error
+
+	// WriteLock Locks for write.  Only one writer is allowed
+	// into the critical section.  Once a WriteLock is requested
+	// no more readers will be allowed into the critical section
+	// it is an error to attempt to get a WriteLock while holding
+	// a read lock (an error will be thrown).  Is a counting lock.
+	// May only be called from inside a Goth thread
+	WriteLock() error
+
+	// WriteUnlock unlocks write lock.  Will only truly leave
+	// critical section as reader when count is zero
+	WriteUnlock() error
 }

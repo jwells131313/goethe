@@ -1,5 +1,3 @@
-package utilities
-
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
@@ -39,6 +37,8 @@ package utilities
  * only if the new code is made subject to such option by the copyright
  * holder.
  */
+
+package utilities
 
 import (
 	"testing"
@@ -85,4 +85,17 @@ func TestGothFactory(t *testing.T) {
 	}
 
 	t.Logf("Got tids %v,%v", foundTid1, foundTid2)
+}
+
+func TestReturnNegativeOneOnNormalThread(t *testing.T) {
+	goth := GetGoth()
+	if goth == nil {
+		t.Error("We did not get a goth")
+		return
+	}
+
+	nonGothTid := goth.GetThreadID()
+	if nonGothTid != -1 {
+		t.Error("Non-goth tid must be -1, we got ", nonGothTid)
+	}
 }
