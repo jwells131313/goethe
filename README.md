@@ -51,13 +51,13 @@ pass a context around everywhere.
 import "github.com/jwells131313/goethe/utilities"
 import "github.com/jwells131313/goethe"
 
-goth := utilities.GetGoethe()
+goethe := utilities.GetGoethe()
 
 channel := make(chan int64)
 
-goth.Go(func() error {
+goethe.Go(func() error {
     // A thread ID!
-    tid := goth.GetThreadID()
+    tid := goethe.GetThreadID()
     
     // Tell momma about our thread-id
     channel <- tid
