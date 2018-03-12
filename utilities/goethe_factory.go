@@ -42,34 +42,34 @@ package utilities
 
 import (
 	"fmt"
-	"github.com/jwells131313/goth"
-	"github.com/jwells131313/goth/internal"
+	"github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/internal"
 	"runtime/debug"
 	"strings"
 	"sync"
 )
 
-type gothData struct {
+type goetheData struct {
 	tidMux  sync.Mutex
 	lastTid int64
 }
 
-var globalGoth goth.Goth = newGoth()
+var globalGoethe goethe.Goethe = newGoethe()
 
-func newGoth() goth.Goth {
-	retVal := &gothData{
+func newGoethe() goethe.Goethe {
+	retVal := &goetheData{
 		lastTid: 9,
 	}
 
 	return retVal
 }
 
-// GetGoth returns the systems goth global
-func GetGoth() goth.Goth {
-	return globalGoth
+// GetGoethe returns the systems goth global
+func GetGoethe() goethe.Goethe {
+	return globalGoethe
 }
 
-func (goth *gothData) getAndIncrementTid() int64 {
+func (goth *goetheData) getAndIncrementTid() int64 {
 	goth.tidMux.Lock()
 	defer goth.tidMux.Unlock()
 
@@ -77,13 +77,13 @@ func (goth *gothData) getAndIncrementTid() int64 {
 	return goth.lastTid
 }
 
-func (goth *gothData) Go(userCall func() error) {
+func (goth *goetheData) Go(userCall func() error) {
 	tid := goth.getAndIncrementTid()
 
 	go invokeStart(tid, userCall)
 }
 
-func (goth *gothData) GetThreadID() int64 {
+func (goth *goetheData) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)
 
@@ -112,7 +112,7 @@ func (goth *gothData) GetThreadID() int64 {
 	return int64(result)
 }
 
-func (goth *gothData) NewGothLock() goth.Lock {
+func (goth *goetheData) NewGoetheLock() goethe.Lock {
 	return internal.NewReaderWriterLock(goth)
 }
 

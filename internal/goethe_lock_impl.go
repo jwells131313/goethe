@@ -44,11 +44,11 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/jwells131313/goth"
+	"github.com/jwells131313/goethe"
 )
 
-type gothLock struct {
-	parent goth.Goth
+type goetheLock struct {
+	parent goethe.Goethe
 
 	goMux sync.Mutex
 	cond  *sync.Cond
@@ -67,8 +67,8 @@ var (
 
 // NewReaderWriterLock creates a reader
 // writer lock
-func NewReaderWriterLock(pparent goth.Goth) goth.Lock {
-	retVal := &gothLock {
+func NewReaderWriterLock(pparent goethe.Goethe) goethe.Lock {
+	retVal := &goetheLock {
 		parent: pparent,
 		holdingWriter: -2,
 		readerCounts: make(map[int64]int32),
@@ -83,7 +83,7 @@ func NewReaderWriterLock(pparent goth.Goth) goth.Lock {
 // are allowed in simultaneously.  Is counting, but all locks must
 // be paired with ReadUnlock.  You may get a ReadLock while holding
 // a WriteLock.  May only be called from inside a Goth thread
-func (lock *gothLock) ReadLock() error {
+func (lock *goetheLock) ReadLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
 		return errNotGothThread
@@ -108,7 +108,7 @@ func (lock *gothLock) ReadLock() error {
 	return nil
 }
 
-func (lock *gothLock) incrementReadLock(tid int64) {
+func (lock *goetheLock) incrementReadLock(tid int64) {
 	currentValue, found := lock.readerCounts[tid]
 	if found {
 		currentValue++
@@ -120,7 +120,7 @@ func (lock *gothLock) incrementReadLock(tid int64) {
 
 // ReadUnlock unlocks the read lock.  Will only truly leave
 // critical section as reader when count is zero
-func (lock *gothLock) ReadUnlock() error {
+func (lock *goetheLock) ReadUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
 		return errNotGothThread
@@ -146,7 +146,7 @@ func (lock *gothLock) ReadUnlock() error {
 }
 
 // getAllOtherReadCount must have mutex held
-func (lock *gothLock) getAllOtherReadCount(localTid int64) int32 {
+func (lock *goetheLock) getAllOtherReadCount(localTid int64) int32 {
 	var result int32
 
 	for tid, count := range lock.readerCounts {
@@ -162,7 +162,7 @@ func (lock *gothLock) getAllOtherReadCount(localTid int64) int32 {
 // into the critical section.  Once a WriteLock is requested
 // no more readers will be allowed into the critical section
 // Is a counting lock.  May only be called from inside a Goth thread
-func (lock *gothLock) WriteLock() error {
+func (lock *goetheLock) WriteLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
 		return errNotGothThread
@@ -191,7 +191,7 @@ func (lock *gothLock) WriteLock() error {
 
 // WriteUnlock unlocks write lock.  Will only truly leave
 // critical section as reader when count is zero
-func (lock *gothLock) WriteUnlock() error {
+func (lock *goetheLock) WriteUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
 		return errNotGothThread

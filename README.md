@@ -36,7 +36,7 @@
 [//]: # " only if the new code is made subject to such option by the copyright "
 [//]: # " holder. "
 
-goth
+goethe
 ===
 
 Threading utilities for GO
@@ -48,15 +48,15 @@ Runs a method under a thread and allows you to get a thread-id without having to
 pass a context around everywhere.
 
 ```go
-import "github.com/jwells131313/goth/utilities"
-import "github.com/jwells131313/goth"
+import "github.com/jwells131313/goethe/utilities"
+import "github.com/jwells131313/goethe"
 
-goth := utilities.GetGoth()
+goth := utilities.GetGoethe()
 
 channel := make(chan int64)
 
 goth.Go(func() error {
-    // A thread ID!  Oh no, we've broken Go!
+    // A thread ID!
     tid := goth.GetThreadID()
     
     // Tell momma about our thread-id
@@ -69,13 +69,12 @@ threadID := <- channel
 ```
 
 Of course, were this to be your actual code your thread would go off into its own little world doing
-good things for all and never, ever biting the heads of bats or anything like that.
+good things for all
 
 In the future it is intended for goth to provide the following:
 
 * Thread Local Storage (it *can* be done!)
 * Thread pools
+* Counting reader/writer locks!
 
-It's a nice day for a white wedding
-
-![](https://github.com/jwells131313/goth/blob/master/images/goth.jpg "Go Thread Utilities")
+![](https://github.com/jwells131313/goethe/blob/master/images/goth.jpg "Go Thread Utilities")

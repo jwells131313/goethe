@@ -45,23 +45,23 @@ import (
 )
 
 func TestGothFactory(t *testing.T) {
-	goth := GetGoth()
-	if goth == nil {
+	goethe := GetGoethe()
+	if goethe == nil {
 		t.Error("We did not get a goth")
 		return
 	}
 
 	channel := make(chan int64)
 
-	goth.Go(func() error {
-		tid := goth.GetThreadID()
+	goethe.Go(func() error {
+		tid := goethe.GetThreadID()
 		channel <- tid
 
 		return nil
 	})
 
-	goth.Go(func() error {
-		tid := goth.GetThreadID()
+	goethe.Go(func() error {
+		tid := goethe.GetThreadID()
 		channel <- tid
 
 		return nil
@@ -88,13 +88,13 @@ func TestGothFactory(t *testing.T) {
 }
 
 func TestReturnNegativeOneOnNormalThread(t *testing.T) {
-	goth := GetGoth()
-	if goth == nil {
+	goethe := GetGoethe()
+	if goethe == nil {
 		t.Error("We did not get a goth")
 		return
 	}
 
-	nonGothTid := goth.GetThreadID()
+	nonGothTid := goethe.GetThreadID()
 	if nonGothTid != -1 {
 		t.Error("Non-goth tid must be -1, we got ", nonGothTid)
 	}

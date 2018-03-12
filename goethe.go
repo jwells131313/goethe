@@ -38,12 +38,12 @@
  * holder.
  */
 
-package goth
+package goethe
 
-// Goth a service which runs your routines in threads
+// Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
 // local storage
-type Goth interface {
+type Goethe interface {
 	// Go Runs the given function with the given parameters
 	// in a new go thread.  Will always allocate a new
 	// thread-id
@@ -54,8 +54,8 @@ type Goth interface {
 	// as thread ids 0 through 9 are reserved for future use
 	GetThreadID() int64
 
-	// NewGothLock Creates a new goth lock
-	NewGothLock() Lock
+	// NewGoetheLock Creates a new goth lock
+	NewGoetheLock() Lock
 }
 
 // Lock is a reader/writer lock that is a counting lock
