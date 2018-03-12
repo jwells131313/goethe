@@ -76,5 +76,8 @@ In the future it is intended for goth to provide the following:
 * Thread Local Storage (it *can* be done!)
 * Thread pools
 * Counting reader/writer locks!
+* Scheduled execution of things (on goethe threads)
+* locks you can try
+* locks you can give up on after some duration
 
 ![](https://github.com/jwells131313/goethe/blob/master/images/goth.jpg "Go Thread Utilities")
