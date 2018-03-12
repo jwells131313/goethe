@@ -1,0 +1,216 @@
+/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright (c) 2018 Oracle and/or its affiliates. All rights reserved.
+ *
+ * The contents of this file are subject to the terms of either the GNU
+ * General Public License Version 2 only ("GPL") or the Common Development
+ * and Distribution License("CDDL") (collectively, the "License").  You
+ * may not use this file except in compliance with the License.  You can
+ * obtain a copy of the License at
+ * https://glassfish.dev.java.net/public/CDDL+GPL_1_1.html
+ * or packager/legal/LICENSE.txt.  See the License for the specific
+ * language governing permissions and limitations under the License.
+ *
+ * When distributing the software, include this License Header Notice in each
+ * file and include the License file at packager/legal/LICENSE.txt.
+ *
+ * GPL Classpath Exception:
+ * Oracle designates this particular file as subject to the "Classpath"
+ * exception as provided by Oracle in the GPL Version 2 section of the License
+ * file that accompanied this code.
+ *
+ * Modifications:
+ * If applicable, add the following below the License Header, with the fields
+ * enclosed by brackets [] replaced by your own identifying information:
+ * "Portions Copyright [year] [name of copyright owner]"
+ *
+ * Contributor(s):
+ * If you wish your version of this file to be governed by only the CDDL or
+ * only the GPL Version 2, indicate your decision by adding "[Contributor]
+ * elects to include this software in this distribution under the [CDDL or GPL
+ * Version 2] license."  If you don't indicate a single choice of license, a
+ * recipient has the option to distribute your version of this file under
+ * either the CDDL, the GPL Version 2 or to extend the choice of license to
+ * its licensees as provided above.  However, if you add GPL Version 2 code
+ * and therefore, elected the GPL Version 2 license, then the option applies
+ * only if the new code is made subject to such option by the copyright
+ * holder.
+ */
+
+package internal
+
+import (
+	"errors"
+	"sync"
+
+	"github.com/jwells131313/goth"
+)
+
+type gothLock struct {
+	parent goth.Goth
+
+	goMux sync.Mutex
+	cond  *sync.Cond
+
+	readerCounts map[int64]int32
+
+	holdingWriter int64
+	writerCount int32
+	writersWaiting int64
+}
+
+var (
+	errNotGothThread = errors.New("function called from non-goth thread")
+	errWriteLockNotHeld = errors.New("write lock is not held by this thread")
+)
+
+// NewReaderWriterLock creates a reader
+// writer lock
+func NewReaderWriterLock(pparent goth.Goth) goth.Lock {
+	retVal := &gothLock {
+		parent: pparent,
+		holdingWriter: -2,
+		readerCounts: make(map[int64]int32),
+	}
+
+	retVal.cond = sync.NewCond(&retVal.goMux)
+
+	return retVal
+}
+
+// ReadLock Locks for read.  Multiple readers on multiple threads
+// are allowed in simultaneously.  Is counting, but all locks must
+// be paired with ReadUnlock.  You may get a ReadLock while holding
+// a WriteLock.  May only be called from inside a Goth thread
+func (lock *gothLock) ReadLock() error {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		return errNotGothThread
+	}
+
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	if lock.holdingWriter == tid {
+		// We can go ahead and increment our count and leave
+		lock.incrementReadLock(tid)
+		return nil
+	}
+
+	for lock.holdingWriter >= 0 || lock.writersWaiting > 0 {
+		lock.cond.Wait()
+	}
+
+	// At this point holdingWriter < 0 and there are no writersWaiting
+	lock.incrementReadLock(tid)
+
+	return nil
+}
+
+func (lock *gothLock) incrementReadLock(tid int64) {
+	currentValue, found := lock.readerCounts[tid]
+	if found {
+		currentValue++
+		lock.readerCounts[tid] = currentValue
+	} else {
+		lock.readerCounts[tid] = 1
+	}
+}
+
+// ReadUnlock unlocks the read lock.  Will only truly leave
+// critical section as reader when count is zero
+func (lock *gothLock) ReadUnlock() error {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		return errNotGothThread
+	}
+
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	count, found := lock.readerCounts[tid]
+	if !found {
+		// Weird case, probably a horrible error
+		return nil
+	}
+
+	count--
+	if count <= 0 {
+		delete(lock.readerCounts, tid)
+	} else {
+		lock.readerCounts[tid] = count
+	}
+
+	return nil
+}
+
+// getAllOtherReadCount must have mutex held
+func (lock *gothLock) getAllOtherReadCount(localTid int64) int32 {
+	var result int32
+
+	for tid, count := range lock.readerCounts {
+		if tid != localTid {
+			result += count
+		}
+	}
+
+	return result
+}
+
+// WriteLock Locks for write.  Only one writer is allowed
+// into the critical section.  Once a WriteLock is requested
+// no more readers will be allowed into the critical section
+// Is a counting lock.  May only be called from inside a Goth thread
+func (lock *gothLock) WriteLock() error {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		return errNotGothThread
+	}
+
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	if lock.holdingWriter == tid {
+		lock.writerCount++
+		return nil
+	}
+
+	lock.writersWaiting++
+	for lock.holdingWriter >= 0 || lock.getAllOtherReadCount(tid) > 0 {
+		lock.cond.Wait()
+	}
+
+	// I just got this lock for myself
+	lock.holdingWriter = tid
+
+	lock.writerCount = 1
+	lock.writersWaiting--
+	return nil
+}
+
+// WriteUnlock unlocks write lock.  Will only truly leave
+// critical section as reader when count is zero
+func (lock *gothLock) WriteUnlock() error {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		return errNotGothThread
+	}
+
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	if tid != lock.holdingWriter {
+		return errWriteLockNotHeld
+	}
+
+	lock.writerCount--
+	if lock.writerCount <= 0 {
+		lock.writerCount = 0
+		lock.holdingWriter = -2
+
+		lock.cond.Broadcast()
+	}
+
+	return nil
+}

@@ -113,7 +113,7 @@ func (goth *gothData) GetThreadID() int64 {
 }
 
 func (goth *gothData) NewGothLock() goth.Lock {
-	return internal.NewReaderWriterLock()
+	return internal.NewReaderWriterLock(goth)
 }
 
 // convertToNibbles returns the nibbles of the string
