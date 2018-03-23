@@ -36,13 +36,13 @@
 [//]: # " only if the new code is made subject to such option by the copyright "
 [//]: # " holder. "
 
-goethe
-===
+# goethe
 
 Threading utilities for GO
 
-Usage
------
+## Usage
+
+### ThreadID
 
 Runs a method under a thread and allows you to get a thread-id without having to
 pass a context around everywhere.
@@ -68,14 +68,52 @@ goethe.Go(func() error {
 threadID := <- channel
 ```
 
-Of course, were this to be your actual code your thread would go off into its own little world doing
-good things for all
+### Counting/Recursive Locks
+
+In goethe threads you can have recursive reader/write mutexes which obey the following rules:
+
+* Only one writer mutex is allowed into the critical section
+* When holding a writer mutex another writer mutex may be acquired (counting)
+* When holding a writer mutex you may aquire a reader mutex.  The writer mutex remains in effect
+* Many reader mutexes can be held on multiple different threads
+* When holding a reader mutex another reader mutex may be acquired (counting)
+* When holding a reader mutex you may NOT acquire a writer mutex (an error will occur)
+* Once a writer asks for the lock no more readers will be able to enter, so writers can starve readers
+
+The following is an example of a recursive write lock
+```go
+package main
+
+import "github.com/jwells131313/goethe/utilities"
+import "github.com/jwells131313/goethe"
+
+goethe := utilities.GetGoethe()
+lock := goethe.NewGoetheLock()
+
+func writer1() {
+	lock.WriteLock()
+	defer lock.WriteUnlock()
+	
+	writer2()
+}
+
+func writer2() {
+	lock.WriteLock()
+	defer lock.WriteUnlock()
+}
+
+func main() {
+	goethe.Go(reader1)
+}
+```
+
+If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
+will return an error
 
 In the future it is intended for goth to provide the following:
 
 * Thread Local Storage (it *can* be done!)
 * Thread pools
-* Counting reader/writer locks!
 * Scheduled execution of things (on goethe threads)
 * locks you can try
 * locks you can give up on after some duration
