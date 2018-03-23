@@ -109,19 +109,29 @@ func TestTwoWritersMutex(t *testing.T) {
 }
 
 func TestWriterWaitsForOneReader(t *testing.T) {
+	writerWaitsForNReaders(t, 1)
+}
+
+func TestWriterWaitsForTenReaders(t *testing.T) {
+	writerWaitsForNReaders(t, 10)
+}
+
+func writerWaitsForNReaders(t *testing.T, numReaders int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
 
 	goethe := utilities.GetGoethe()
 	lock := goethe.NewGoetheLock()
 
-	goethe.Go(func() error {
-		readValue(lock, waiter, throttle)
+	for lcv := 0; lcv < numReaders; lcv++ {
+		goethe.Go(func() error {
+			readValue(lock, waiter, throttle)
 
-		return nil
-	})
+			return nil
+		})
+	}
 
-	numReaders, foundReader := waiter.waitForNumReaders(5, 1)
+	numReaders, foundReader := waiter.waitForNumReaders(5, numReaders)
 	if !foundReader {
 		t.Errorf("Did not get expected number of readers in 5 seconds, got %d", numReaders)
 		return
