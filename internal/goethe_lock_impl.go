@@ -138,6 +138,10 @@ func (lock *goetheLock) ReadUnlock() error {
 	count--
 	if count <= 0 {
 		delete(lock.readerCounts, tid)
+
+		if lock.writersWaiting > 0 && lock.getAllOtherReadCount(tid) <= 0 {
+			lock.cond.Broadcast()
+		}
 	} else {
 		lock.readerCounts[tid] = count
 	}
