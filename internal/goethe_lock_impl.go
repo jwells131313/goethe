@@ -41,7 +41,6 @@
 package internal
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/jwells131313/goethe"
@@ -59,11 +58,6 @@ type goetheLock struct {
 	writerCount int32
 	writersWaiting int64
 }
-
-var (
-	errNotGothThread = errors.New("function called from non-goth thread")
-	errWriteLockNotHeld = errors.New("write lock is not held by this thread")
-)
 
 // NewReaderWriterLock creates a reader
 // writer lock
@@ -86,7 +80,7 @@ func NewReaderWriterLock(pparent goethe.Goethe) goethe.Lock {
 func (lock *goetheLock) ReadLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return errNotGothThread
+		return goethe.ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -123,7 +117,7 @@ func (lock *goetheLock) incrementReadLock(tid int64) {
 func (lock *goetheLock) ReadUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return errNotGothThread
+		return goethe.ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -162,6 +156,16 @@ func (lock *goetheLock) getAllOtherReadCount(localTid int64) int32 {
 	return result
 }
 
+// getMyReadCount must have mutex held
+func (lock *goetheLock) getMyReadCount(localTid int64) int32 {
+	value, found := lock.readerCounts[localTid]
+	if !found {
+		return 0
+	}
+
+	return value
+}
+
 // WriteLock Locks for write.  Only one writer is allowed
 // into the critical section.  Once a WriteLock is requested
 // no more readers will be allowed into the critical section
@@ -169,11 +173,15 @@ func (lock *goetheLock) getAllOtherReadCount(localTid int64) int32 {
 func (lock *goetheLock) WriteLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return errNotGothThread
+		return goethe.ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
+
+	if lock.getMyReadCount(tid) != 0 {
+		return goethe.ErrReadLockHeld
+	}
 
 	if lock.holdingWriter == tid {
 		// counting
@@ -199,14 +207,14 @@ func (lock *goetheLock) WriteLock() error {
 func (lock *goetheLock) WriteUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return errNotGothThread
+		return goethe.ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
 
 	if tid != lock.holdingWriter {
-		return errWriteLockNotHeld
+		return goethe.ErrWriteLockNotHeld
 	}
 
 	lock.writerCount--

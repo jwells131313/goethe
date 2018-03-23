@@ -40,6 +40,19 @@
 
 package goethe
 
+import "errors"
+
+var (
+	// ErrReadLockHeld returned if a WriteLock call is made while holding a ReadLock
+	ErrReadLockHeld = errors.New("attempted to acquire a WriteLock while ReadLock was held")
+
+	// ErrNotGoetheThread returned if any lock is attempted while not in a goethe thread
+	ErrNotGoetheThread = errors.New("function called from non-goth thread")
+
+	// ErrWriteLockNotHeld returned if a call to WriteUnlock is made while not holding the WriteLock
+	ErrWriteLockNotHeld = errors.New("write lock is not held by this thread")
+)
+
 // Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
 // local storage
@@ -50,11 +63,11 @@ type Goethe interface {
 	Go(func() error)
 
 	// GetthreadID Gets the current threadID.  Returns -1
-	// if this is not a goth thread.  Thread ids start at 10
+	// if this is not a goethe thread.  Thread ids start at 10
 	// as thread ids 0 through 9 are reserved for future use
 	GetThreadID() int64
 
-	// NewGoetheLock Creates a new goth lock
+	// NewGoetheLock Creates a new goethe lock
 	NewGoetheLock() Lock
 }
 
@@ -68,7 +81,7 @@ type Lock interface {
 	// ReadLock Locks for read.  Multiple readers on multiple threads
 	// are allowed in simultaneously.  Is counting, but all locks must
 	// be paired with ReadUnlock.  You may get a ReadLock while holding
-	// a WriteLock.  May only be called from inside a Goth thread
+	// a WriteLock.  May only be called from inside a Goethe thread
 	ReadLock() error
 
 	// ReadUnlock unlocks the read lock.  Will only truly leave
@@ -77,10 +90,9 @@ type Lock interface {
 
 	// WriteLock Locks for write.  Only one writer is allowed
 	// into the critical section.  Once a WriteLock is requested
-	// no more readers will be allowed into the critical section
-	// it is an error to attempt to get a WriteLock while holding
-	// a read lock (an error will be thrown).  Is a counting lock.
-	// May only be called from inside a Goth thread
+	// no more readers will be allowed into the critical section.
+	// An ReadLockHeld error will be returned immediately if an attempt
+	// is made to acquire a WriteLock when a ReadLock is held
 	WriteLock() error
 
 	// WriteUnlock unlocks write lock.  Will only truly leave
