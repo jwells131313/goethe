@@ -190,6 +190,68 @@ func TestReaderCanBecomeWriter(t *testing.T) {
 	t.Error("there was no error after 20 seconds")
 }
 
+func TestWriterInsideReaderWillWaitForOtherReaders(t *testing.T) {
+	goethe := utilities.GetGoethe()
+	lock := goethe.NewGoetheLock()
+
+	gotHere := false
+
+	stopWriteThrottler := newThrottler()
+	stopReaderThrottler := newThrottler()
+
+	goethe.Go(func() error {
+		lock.ReadLock()
+		defer lock.ReadUnlock()
+
+		stopWriteThrottler.wait()
+
+		lock.WriteLock()
+		defer lock.WriteUnlock()
+
+		gotHere = true
+
+		return nil
+	})
+
+	goethe.Go(func() error {
+		lock.ReadLock()
+		defer lock.ReadUnlock()
+
+		// We are now in held read lock, we can release the writer
+		stopWriteThrottler.release()
+
+		// Hold onto the read lock
+		stopReaderThrottler.wait()
+
+		return nil
+	})
+
+	// Ensure gotHere is NOT reached (wait two seconds)
+	for lcv := 0; lcv < 20; lcv++ {
+		if gotHere {
+			t.Errorf("should not have gotten into writer since the read lock is alredy held")
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// ok, now release the reader, make sure the writer does go
+	stopReaderThrottler.release()
+
+	for lcv := 0; lcv < 200; lcv++ {
+		if gotHere {
+			// success
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Error("writer did not proceed after 20 seconds")
+}
+
+/* ***************************************** Below find utility functions ****************************************** */
 func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writeRecurseDepth int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
