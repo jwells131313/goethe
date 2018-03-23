@@ -114,7 +114,7 @@ func main() {
 If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
 will return an error
 
-In the future it is intended for goth to provide the following:
+In the future it is intended for goethe to provide the following:
 
 * Thread Local Storage (it *can* be done!)
 * Thread pools
