@@ -207,7 +207,8 @@ func incrementValueByOne(lock goethe.Lock, waiter *simpleValue,
 }
 
 // readValue the point of it recursing is to test the countingness of the read locks
-func readValue(lock goethe.Lock, waiter *simpleValue, throttle *throttler, recurseDepth int, actualDepth *int) int {
+func readValue(lock goethe.Lock, waiter *simpleValue, throttle *throttler,
+	recurseDepth int, actualDepth *int) int {
 	lock.ReadLock()
 	defer lock.ReadUnlock()
 

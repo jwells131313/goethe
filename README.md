@@ -84,17 +84,21 @@ The following is an example of a recursive write lock
 ```go
 package main
 
-import "github.com/jwells131313/goethe/utilities"
-import "github.com/jwells131313/goethe"
+import (
+	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
+)
 
-goethe := utilities.GetGoethe()
-lock := goethe.NewGoetheLock()
+var goether goethe.Goethe = utilities.GetGoethe()
+var lock goethe.Lock = goether.NewGoetheLock()
 
-func writer1() {
+func writer1() error {
 	lock.WriteLock()
 	defer lock.WriteUnlock()
-	
+
 	writer2()
+
+	return nil
 }
 
 func writer2() {
@@ -103,7 +107,7 @@ func writer2() {
 }
 
 func main() {
-	goethe.Go(reader1)
+	goether.Go(writer1)
 }
 ```
 
