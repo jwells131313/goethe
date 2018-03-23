@@ -113,22 +113,26 @@ func TestTwoWritersMutex(t *testing.T) {
 }
 
 func TestWriterWaitsForOneReader(t *testing.T) {
-	writerWaitsForNReaders(t, 1, 0)
+	writerWaitsForNReaders(t, 1, 0, 0)
 }
 
 func TestWriterWaitsForTenReaders(t *testing.T) {
-	writerWaitsForNReaders(t, 10, 0)
+	writerWaitsForNReaders(t, 10, 0, 0)
 }
 
 func TestWriterWaitsForOneCountingReader(t *testing.T) {
-	writerWaitsForNReaders(t, 1, 5)
+	writerWaitsForNReaders(t, 1, 5, 0)
 }
 
 func TestWriterWaitsForManyCountingReader(t *testing.T) {
-	writerWaitsForNReaders(t, 5, 5)
+	writerWaitsForNReaders(t, 5, 5, 0)
 }
 
-func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int) {
+func TestCountingWriterWaitsForOneReader(t *testing.T) {
+	writerWaitsForNReaders(t, 1, 0, 4)
+}
+
+func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writeRecurseDepth int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
 
@@ -157,24 +161,26 @@ func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int) {
 	goethe.Go(func() error {
 		var actualDepth int
 
-		incrementValueByOne(lock, waiter, throttle, 0, &actualDepth)
+		incrementValueByOne(lock, waiter, throttle, writeRecurseDepth, &actualDepth)
 
 		return nil
 	})
 
 	// Writer should not get this as reader is still in there
+
 	received, gotValue := waiter.waitForValue(2, 1)
 	if gotValue {
-		t.Error("should not have gotten the value 1", received)
+		t.Error("should not have gotten to the value 1", received)
 		return
 	}
 
 	// Now, let the reader thread go
 	throttle.release()
 
-	received, gotValue = waiter.waitForValue(5, 1)
+	expectedWriteValue := writeRecurseDepth + 1
+	received, gotValue = waiter.waitForValue(5, expectedWriteValue)
 	if !gotValue {
-		t.Error("should have gotten the value 1", received)
+		t.Errorf("should have gotten the value %d, instead got %d", expectedWriteValue, received)
 		return
 	}
 
