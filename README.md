@@ -74,10 +74,10 @@ In goethe threads you can have recursive reader/write mutexes which obey the fol
 
 * Only one writer mutex is allowed into the critical section
 * When holding a writer mutex another writer mutex may be acquired (counting)
-* When holding a writer mutex you may aquire a reader mutex.  The writer mutex remains in effect
+* When holding a writer mutex you may acquire a reader mutex.  The writer mutex remains in effect
 * Many reader mutexes can be held on multiple different threads
 * When holding a reader mutex another reader mutex may be acquired (counting)
-* When holding a reader mutex you may NOT acquire a writer mutex (an error will occur)
+* When holding a reader mutex you can acquirer the writer mutex on the same thread once all readers on other threads are gone
 * Once a writer asks for the lock no more readers will be able to enter, so writers can starve readers
 
 The following is an example of a recursive write lock

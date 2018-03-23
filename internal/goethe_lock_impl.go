@@ -176,6 +176,7 @@ func (lock *goetheLock) WriteLock() error {
 	defer lock.goMux.Unlock()
 
 	if lock.holdingWriter == tid {
+		// counting
 		lock.writerCount++
 		return nil
 	}

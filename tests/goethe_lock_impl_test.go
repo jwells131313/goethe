@@ -161,6 +161,35 @@ func TestWriterCanBecomeReader(t *testing.T) {
 	t.Error("gotHere was not changed to true after 20 seconds")
 }
 
+func TestReaderCanBecomeWriter(t *testing.T) {
+	goethe := utilities.GetGoethe()
+	lock := goethe.NewGoetheLock()
+	gotHere := false
+
+	goethe.Go(func() error {
+		lock.ReadLock()
+		defer lock.ReadUnlock()
+
+		lock.WriteLock()
+		defer lock.WriteUnlock()
+
+		gotHere = true
+
+		return nil
+	})
+
+	for lcv := 0; lcv < 200; lcv++ {
+		if gotHere {
+			// success
+			return
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	t.Error("there was no error after 20 seconds")
+}
+
 func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writeRecurseDepth int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
