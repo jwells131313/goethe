@@ -41,22 +41,24 @@
 package tests
 
 import (
-	"testing"
 	"sync"
+	"sync/atomic"
+	"testing"
 
+	"github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
 	"time"
-	"github.com/jwells131313/goethe"
 )
 
 type simpleValue struct {
 	mux sync.Mutex
 
-	value int
+	value      int
+	numReaders int32
 }
 
 type throttler struct {
-	mux sync.Mutex
+	mux  sync.Mutex
 	cond *sync.Cond
 
 	proceed bool
@@ -106,6 +108,52 @@ func TestTwoWritersMutex(t *testing.T) {
 	throttle.release()
 }
 
+func TestWriterWaitsForOneReader(t *testing.T) {
+	waiter := newSimpleValue()
+	throttle := newThrottler()
+
+	goethe := utilities.GetGoethe()
+	lock := goethe.NewGoetheLock()
+
+	goethe.Go(func() error {
+		readValue(lock, waiter, throttle)
+
+		return nil
+	})
+
+	numReaders, foundReader := waiter.waitForNumReaders(5, 1)
+	if !foundReader {
+		t.Errorf("Did not get expected number of readers in 5 seconds, got %d", numReaders)
+		return
+	}
+
+	// A reader is in there, now fire up the writer
+	goethe.Go(func() error {
+		incrementValueByOne(lock, waiter, throttle)
+
+		return nil
+	})
+
+	// Writer should not get this as reader is still in there
+	received, gotValue := waiter.waitForValue(2, 1)
+	if gotValue {
+		t.Error("should not have gotten the value 1", received)
+		return
+	}
+
+	// Now, let the reader thread go
+	throttle.release()
+
+	received, gotValue = waiter.waitForValue(5, 1)
+	if !gotValue {
+		t.Error("should have gotten the value 1", received)
+		return
+	}
+
+	throttle.release()
+
+}
+
 func incrementValueByOne(lock goethe.Lock, waiter *simpleValue, throttle *throttler) {
 	lock.WriteLock()
 	defer lock.WriteUnlock()
@@ -115,10 +163,42 @@ func incrementValueByOne(lock goethe.Lock, waiter *simpleValue, throttle *thrott
 	throttle.wait()
 }
 
+func readValue(lock goethe.Lock, waiter *simpleValue, throttle *throttler) int {
+	lock.ReadLock()
+	defer lock.ReadUnlock()
+
+	atomic.AddInt32(&waiter.numReaders, 1)
+
+	throttle.wait()
+
+	atomic.AddInt32(&waiter.numReaders, -1)
+
+	return waiter.value
+}
+
 func newSimpleValue() *simpleValue {
 	retVal := &simpleValue{}
 
 	return retVal
+}
+
+func (waiter *simpleValue) waitForNumReaders(seconds, numReaders int) (int, bool) {
+	iterations := seconds * 10
+
+	for lcv := 0; lcv < iterations; lcv++ {
+		if int(atomic.AddInt32(&waiter.numReaders, 0)) == numReaders {
+			return numReaders, true
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	retVal := int(atomic.AddInt32(&waiter.numReaders, 0))
+	if retVal == numReaders {
+		return numReaders, true
+	}
+
+	return retVal, false
 }
 
 func (waiter *simpleValue) waitForValue(seconds, expected int) (int, bool) {
@@ -148,7 +228,7 @@ func (waiter *simpleValue) waitForValue(seconds, expected int) (int, bool) {
 }
 
 func newThrottler() *throttler {
-	retVal := &throttler {
+	retVal := &throttler{
 		proceed: false,
 	}
 
@@ -177,4 +257,3 @@ func (throttle *throttler) wait() {
 
 	throttle.cond.Wait()
 }
-
