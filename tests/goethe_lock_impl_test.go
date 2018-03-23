@@ -109,14 +109,22 @@ func TestTwoWritersMutex(t *testing.T) {
 }
 
 func TestWriterWaitsForOneReader(t *testing.T) {
-	writerWaitsForNReaders(t, 1)
+	writerWaitsForNReaders(t, 1, 0)
 }
 
 func TestWriterWaitsForTenReaders(t *testing.T) {
-	writerWaitsForNReaders(t, 10)
+	writerWaitsForNReaders(t, 10, 0)
 }
 
-func writerWaitsForNReaders(t *testing.T, numReaders int) {
+func TestWriterWaitsForOneCountingReader(t *testing.T) {
+	writerWaitsForNReaders(t, 1, 5)
+}
+
+func TestWriterWaitsForManyCountingReader(t *testing.T) {
+	writerWaitsForNReaders(t, 5, 5)
+}
+
+func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
 
@@ -125,15 +133,19 @@ func writerWaitsForNReaders(t *testing.T, numReaders int) {
 
 	for lcv := 0; lcv < numReaders; lcv++ {
 		goethe.Go(func() error {
-			readValue(lock, waiter, throttle)
+			var actualDepth int
+
+			readValue(lock, waiter, throttle, recurseDepth, &actualDepth)
 
 			return nil
 		})
 	}
 
-	numReaders, foundReader := waiter.waitForNumReaders(5, numReaders)
+	expectedReaders := numReaders * (recurseDepth + 1)
+	numReaders, foundReader := waiter.waitForNumReaders(10, expectedReaders)
 	if !foundReader {
-		t.Errorf("Did not get expected number of readers in 5 seconds, got %d", numReaders)
+		t.Errorf("Did not get expected number of readers (%d) in 5 seconds, got %d",
+			expectedReaders, numReaders)
 		return
 	}
 
@@ -173,13 +185,25 @@ func incrementValueByOne(lock goethe.Lock, waiter *simpleValue, throttle *thrott
 	throttle.wait()
 }
 
-func readValue(lock goethe.Lock, waiter *simpleValue, throttle *throttler) int {
+// readValue the point of it recursing is to test the countingness of the read locks
+func readValue(lock goethe.Lock, waiter *simpleValue, throttle *throttler, recurseDepth int, actualDepth *int) int {
 	lock.ReadLock()
 	defer lock.ReadUnlock()
 
 	atomic.AddInt32(&waiter.numReaders, 1)
 
-	throttle.wait()
+	if recurseDepth > *actualDepth {
+		*actualDepth = *actualDepth + 1
+
+		retVal := readValue(lock, waiter, throttle, recurseDepth, actualDepth)
+
+		atomic.AddInt32(&waiter.numReaders, -1)
+		return retVal
+	}
+
+	if recurseDepth == *actualDepth {
+		throttle.wait()
+	}
 
 	atomic.AddInt32(&waiter.numReaders, -1)
 
