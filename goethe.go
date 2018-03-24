@@ -38,20 +38,14 @@
  * holder.
  */
 
+// Package goethe is a package of thread utilities.  Threads created with
+// goethe.Go have thread-ids unlike normal go routines.  Also within
+// goethe threads you can use counting (recursive) read/write locks
+// which are very useful when you are providing interface implementation
+// to other users who may be using your api in threaded environments
 package goethe
 
 import "errors"
-
-var (
-	// ErrReadLockHeld returned if a WriteLock call is made while holding a ReadLock
-	ErrReadLockHeld = errors.New("attempted to acquire a WriteLock while ReadLock was held")
-
-	// ErrNotGoetheThread returned if any lock is attempted while not in a goethe thread
-	ErrNotGoetheThread = errors.New("function called from non-goth thread")
-
-	// ErrWriteLockNotHeld returned if a call to WriteUnlock is made while not holding the WriteLock
-	ErrWriteLockNotHeld = errors.New("write lock is not held by this thread")
-)
 
 // Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
@@ -99,3 +93,14 @@ type Lock interface {
 	// critical section as reader when count is zero
 	WriteUnlock() error
 }
+
+var (
+	// ErrReadLockHeld returned if a WriteLock call is made while holding a ReadLock
+	ErrReadLockHeld = errors.New("attempted to acquire a WriteLock while ReadLock was held")
+
+	// ErrNotGoetheThread returned if any lock is attempted while not in a goethe thread
+	ErrNotGoetheThread = errors.New("function called from non-goth thread")
+
+	// ErrWriteLockNotHeld returned if a call to WriteUnlock is made while not holding the WriteLock
+	ErrWriteLockNotHeld = errors.New("write lock is not held by this thread")
+)
