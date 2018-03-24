@@ -47,6 +47,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"sync"
+	"time"
 )
 
 type goetheData struct {
@@ -114,6 +115,30 @@ func (goth *goetheData) GetThreadID() int64 {
 
 func (goth *goetheData) NewGoetheLock() goethe.Lock {
 	return internal.NewReaderWriterLock(goth)
+}
+
+// NewBoundedFunctionQueue returns a function queue with the given capacity
+func (goth *goetheData) NewBoundedFunctionQueue(int32) goethe.FunctionQueue {
+	panic("not implemented")
+}
+
+// NewErrorQueue returns an error queue with the given capacity.  If errors
+// are returned when the ErrorQueue is at capacity the new errors are dropped
+func (goth *goetheData) NewErrorQueue(int32) goethe.ErrorQueue {
+	panic("not implemented")
+}
+
+
+// NewPool is the native implementation of NewPool
+func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
+functionQueue goethe.FunctionQueue, errorQueue goethe.ErrorQueue) (goethe.Pool, error) {
+	panic("not implemented")
+}
+
+// GetPool returns a non-closed pool with the given name.  If not found second
+// value returned will be false
+func (goth *goetheData) GetPool(string) (goethe.Pool, bool) {
+	panic("not implemented")
 }
 
 // convertToNibbles returns the nibbles of the string

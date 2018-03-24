@@ -45,7 +45,10 @@
 // to other users who may be using your api in threaded environments
 package goethe
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 // Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
@@ -63,6 +66,80 @@ type Goethe interface {
 
 	// NewGoetheLock Creates a new goethe lock
 	NewGoetheLock() Lock
+
+	// NewBoundedFunctionQueue returns a function queue with the given capacity
+	NewBoundedFunctionQueue(int32) FunctionQueue
+
+	// NewErrorQueue returns an error queue with the given capacity.  If errors
+	// are returned when the ErrorQueue is at capacity the new errors are dropped
+	NewErrorQueue(int32) ErrorQueue
+
+
+	// NewPool creates a new thread pool with the given parameters.  The name is the
+	// name of this pool and may not be empty.  It is an error to try to create more than
+	// one open pool with the same name at the same time.
+	// minThreads is the minimum number of  threads that this pool will maintain while it is open.
+	// minThreads may be zero. maxThreads is the maximum number of threads this pool will ever
+	// allocate simultaneously.  New threads will be allocated if all of the threads in the
+	// pool are busy and the FunctionQueue is not empty (and the total number of threads is less
+	// than maxThreads) maxThreads must be greater than or equal to minThreads.  Having min and max
+	// threads both be zero is an error.  Having min and max threads be the same value implies
+	// a fixed thread size pool.  The idleDecayDuration is how long the system will wait
+	// while the number of threads is greater than minThreads before removing ending the
+	// thread.  functionQueue may not be nil and is how functions are enqueued onto the
+	// thread pool.  errorQueue may be nil but if not nil any error returned by the function
+	// will be enqueued onto the errorQueue.  It is recommended that the implementation of
+	// ErrorQueue have some sort of upper bound
+	NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
+		functionQueue FunctionQueue, errorQueue ErrorQueue) (Pool, error)
+
+	// GetPool returns a non-closed pool with the given name.  If not found second
+	// value returned will be false
+	GetPool(string) (Pool, bool)
+}
+
+// Pool is used to manage a thread pool.  Every thread pool has one
+// function pool and zero or one error queue
+type Pool interface {
+	// IsStarted returns true if this queue has been started
+	IsStarted() bool
+
+	// Attempts to start this pool.  Returns an error if this pool has been closed
+	Start() error
+
+	// GetName Gets the name of this pool
+	GetName() string
+
+	// GetMinThreads the minimum number of threads for this pool
+	GetMinThreads() int32
+
+	// GetMaxThreads the maximum number of threads for this pool
+	GetMaxThreads() int32
+
+	// GetIdleDecayDuration returns the IdleDecayDuration of this
+	// thread pool (the duration a thread must be idle before being
+	// removed from the pool)
+	GetIdleDecayDuration() time.Duration
+
+	// GetCurrentThreadCount returns the current number of active threads
+	// in this pool
+	GetCurrentThreadCount() int32
+
+	// GetFunctionQueue Returns the function queue associated with this pool
+	GetFunctionQueue() FunctionQueue
+
+	// GetErrorQueue returns the error queue associated with this pool
+	GetErrorQueue() ErrorQueue
+
+	// IsClosed returns true if this pool has been closed.  Will remove
+	// this pool from Goethe's map of pools
+	IsClosed() bool
+
+	// Close closes this pool.  All work remaining will be completed, but
+	// no new work will be accepted.  The system will stop reading from
+	// the FunctionQueue, so any remaining jobs can be found on the function
+	// queue
+	Close()
 }
 
 // Lock is a reader/writer lock that is a counting lock
@@ -94,6 +171,47 @@ type Lock interface {
 	WriteUnlock() error
 }
 
+// FunctionQueue a queue of functions to be enqueued and dequeued
+// The system can use any FunctionQueue it is given or you can use
+// the ones returned by Goethe.NewBoundedFunctionQueue
+type FunctionQueue interface {
+	// Enqueue queues a function to be run in the pool.  Returns
+	// ErrAtCapacity if the queue is currently at capacity
+	Enqueue(func() error) error
+
+	// Dequeue returns a function to be run, waiting the given
+	// duration.  If there is no message within the given
+	// duration return the error returned will be ErrEmptyQueue
+	Dequeue(time.Duration) (func() error, error)
+
+	// GetCapacity gets the capacity of this queue
+	GetCapacity() int32
+
+	// GetSize returns the number of items currently in the queue
+	GetSize() int32
+}
+
+// ErrorInformation represents data about an error that occurred
+type ErrorInformation interface {
+	// GetThreadID returns the thread id on which the error occurred
+	GetThreadID() int64
+
+	// GetError returns the error that occurred
+	GetError() error
+
+}
+
+// ErrorQueue is used to retrieve errors thrown by the functions
+// given to the thread pool.  Any implementation of this interface
+// can be used by the system, or you can use the ones returned by
+// Goethe.NewErrorQueue
+type ErrorQueue interface {
+	// Dequeue removes ErrorInformation from the pools
+	// error queue.  If there were no errors on the queue
+	// the second return value is false
+	Dequeue() (ErrorInformation, bool)
+}
+
 var (
 	// ErrReadLockHeld returned if a WriteLock call is made while holding a ReadLock
 	ErrReadLockHeld = errors.New("attempted to acquire a WriteLock while ReadLock was held")
@@ -103,4 +221,11 @@ var (
 
 	// ErrWriteLockNotHeld returned if a call to WriteUnlock is made while not holding the WriteLock
 	ErrWriteLockNotHeld = errors.New("write lock is not held by this thread")
+
+	// ErrAtCapacity returned by FunctionQueue.Enqueue if the queue is currently at capacity
+	ErrAtCapacity = errors.New("queue is at capacity")
+
+	// ErrEmptyQueue returned by FunctionQueue.Dequeue if no function was available inside
+	// of the given duration
+	ErrEmptyQueue = errors.New("queue is empty")
 )
