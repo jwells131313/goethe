@@ -189,6 +189,9 @@ type FunctionQueue interface {
 
 	// GetSize returns the number of items currently in the queue
 	GetSize() int32
+
+	// IsEmpty Returns true if this queue is currently empty
+	IsEmpty() bool
 }
 
 // ErrorInformation represents data about an error that occurred
