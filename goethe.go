@@ -38,10 +38,10 @@
  * holder.
  */
 
-// Package goethe is a package of thread utilities.  Threads created with
-// goethe.Go have thread-ids unlike normal go routines.  Also within
+// Package goethe contains several useful threading utilities.  Threads created
+// with Goethe.Go have thread-ids unlike normal go routines.  Also within
 // goethe threads you can use counting (recursive) read/write locks
-// which are very useful when you are providing interface implementation
+// which are helpful when you are providing interface implementation
 // to other users who may be using your api in threaded environments
 package goethe
 
