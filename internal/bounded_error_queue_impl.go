@@ -38,17 +38,55 @@
  * holder.
  */
 
-package tests
+package internal
 
-type dummyErrorInformation struct {
-	tid int64
-	err error
+import (
+	"github.com/jwells131313/goethe"
+	"sync"
+)
+
+type boundedErrorQueue struct {
+	mux sync.Mutex
+
+	capacity uint32
+	queue    []goethe.ErrorInformation
 }
 
-func (dei *dummyErrorInformation) GetThreadID() int64 {
-	return dei.tid
+// NewBoundedErrorQueue creates a new error queue with the given capacity
+func NewBoundedErrorQueue(userCapacity uint32) goethe.ErrorQueue {
+	return &boundedErrorQueue{
+		capacity: userCapacity,
+		queue:    make([]goethe.ErrorInformation, 0),
+	}
 }
 
-func (dei *dummyErrorInformation) GetError() error {
-	return dei.err
+func (errorq *boundedErrorQueue) Enqueue(info goethe.ErrorInformation) error {
+	if info == nil {
+		return nil
+	}
+
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	if uint32(len(errorq.queue)) >= errorq.capacity {
+		return goethe.ErrAtCapacity
+	}
+
+	errorq.queue = append(errorq.queue, info)
+
+	return nil
+}
+
+func (errorq *boundedErrorQueue) Dequeue() (goethe.ErrorInformation, bool) {
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	if len(errorq.queue) <= 0 {
+		return nil, false
+	}
+
+	retVal := errorq.queue[0]
+	errorq.queue = errorq.queue[1:]
+
+	return retVal, true
 }

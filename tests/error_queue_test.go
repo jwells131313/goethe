@@ -40,15 +40,72 @@
 
 package tests
 
-type dummyErrorInformation struct {
-	tid int64
-	err error
-}
+import (
+	"errors"
+	"testing"
 
-func (dei *dummyErrorInformation) GetThreadID() int64 {
-	return dei.tid
-}
+	"github.com/jwells131313/goethe/utilities"
+)
 
-func (dei *dummyErrorInformation) GetError() error {
-	return dei.err
+func TestBasicFunctionality(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	errorQueue := goethe.NewErrorQueue(10)
+
+	info, found := errorQueue.Dequeue()
+	if found {
+		t.Errorf("should not have found anything in newly created queue %v", info)
+		return
+	}
+	if info != nil {
+		t.Errorf("info should have been nil, it was %v", info)
+		return
+	}
+
+	errorInfo := &dummyErrorInformation{
+		tid: 10,
+		err: errors.New("an error"),
+	}
+
+	err := errorQueue.Enqueue(errorInfo)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	info, found = errorQueue.Dequeue()
+	if !found {
+		t.Errorf("we just added a value, it should be there %v", info)
+		return
+	}
+	if info == nil {
+		t.Errorf("we just added a value, the value itself must not be nil %v", info)
+		return
+	}
+
+	if info.GetThreadID() != 10 {
+		t.Errorf("expected 10 as tid, got %d", info.GetThreadID())
+		return
+	}
+	if info.GetError() == nil {
+		t.Errorf("expected a non-nil error")
+		return
+	}
+
+	if info.GetError().Error() != "an error" {
+		t.Errorf("expected \"an error\" but got %s", info.GetError().Error())
+		return
+	}
+
+	info, found = errorQueue.Dequeue()
+	if found {
+		t.Errorf("after dequing message there should be none left %v", info)
+		return
+	}
+	if info != nil {
+		t.Errorf("after dequeing message there should be no error info %v", info)
+		return
+	}
+
+	// The basics work
 }

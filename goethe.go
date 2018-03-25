@@ -72,8 +72,7 @@ type Goethe interface {
 
 	// NewErrorQueue returns an error queue with the given capacity.  If errors
 	// are returned when the ErrorQueue is at capacity the new errors are dropped
-	NewErrorQueue(int32) ErrorQueue
-
+	NewErrorQueue(uint32) ErrorQueue
 
 	// NewPool creates a new thread pool with the given parameters.  The name is the
 	// name of this pool and may not be empty.  It is an error to try to create more than
@@ -201,7 +200,6 @@ type ErrorInformation interface {
 
 	// GetError returns the error that occurred
 	GetError() error
-
 }
 
 // ErrorQueue is used to retrieve errors thrown by the functions
@@ -209,6 +207,11 @@ type ErrorInformation interface {
 // can be used by the system, or you can use the ones returned by
 // Goethe.NewErrorQueue
 type ErrorQueue interface {
+	// Enqueue adds an error to the error queue.  If the queue is
+	// at capacity should return ErrAtCapacity.  All other errors
+	// will be ignored
+	Enqueue(ErrorInformation) error
+
 	// Dequeue removes ErrorInformation from the pools
 	// error queue.  If there were no errors on the queue
 	// the second return value is false
