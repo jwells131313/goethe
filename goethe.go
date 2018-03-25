@@ -68,7 +68,7 @@ type Goethe interface {
 	NewGoetheLock() Lock
 
 	// NewBoundedFunctionQueue returns a function queue with the given capacity
-	NewBoundedFunctionQueue(int32) FunctionQueue
+	NewBoundedFunctionQueue(uint32) FunctionQueue
 
 	// NewErrorQueue returns an error queue with the given capacity.  If errors
 	// are returned when the ErrorQueue is at capacity the new errors are dropped
@@ -184,10 +184,10 @@ type FunctionQueue interface {
 	Dequeue(time.Duration) (func() error, error)
 
 	// GetCapacity gets the capacity of this queue
-	GetCapacity() int32
+	GetCapacity() uint32
 
 	// GetSize returns the number of items currently in the queue
-	GetSize() int32
+	GetSize() int
 
 	// IsEmpty Returns true if this queue is currently empty
 	IsEmpty() bool

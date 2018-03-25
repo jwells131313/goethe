@@ -118,7 +118,7 @@ func (goth *goetheData) NewGoetheLock() goethe.Lock {
 }
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
-func (goth *goetheData) NewBoundedFunctionQueue(int32) goethe.FunctionQueue {
+func (goth *goetheData) NewBoundedFunctionQueue(uint32) goethe.FunctionQueue {
 	panic("not implemented")
 }
 
