@@ -115,3 +115,94 @@ func TestBasicFQFunctionality(t *testing.T) {
 
 	// The basics work
 }
+
+func TestFQCapacityWorks(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	funcQueue := goethe.NewBoundedFunctionQueue(5)
+
+	var a0, a1, a2, a3, a4 int
+
+	f0 := func() error {
+		a0 = 100
+		return nil
+	}
+	f1 := func() error {
+		a1 = 101
+		return nil
+	}
+	f2 := func() error {
+		a2 = 102
+		return nil
+	}
+	f3 := func() error {
+		a3 = 103
+		return nil
+	}
+	f4 := func() error {
+		a4 = 104
+		return nil
+	}
+
+	funcArray := []func() error{f0, f1, f2, f3, f4}
+
+	for lcv := 0; lcv < 5; lcv++ {
+		// All of these enqueues should work
+		err := funcQueue.Enqueue(funcArray[lcv])
+		if err != nil {
+			t.Errorf("unexpected failure enqueing up to capacity %v", err)
+			return
+		}
+	}
+
+	fx := func() error {
+		return nil
+	}
+
+	err := funcQueue.Enqueue(fx)
+	if err == nil {
+		t.Errorf("should have been an error, we are one past capacity")
+		return
+	}
+	if err != ethe.ErrAtCapacity {
+		t.Errorf("unexpected error when adding past capacity: %v", err)
+		return
+	}
+
+	for lcv := 0; lcv < 5; lcv++ {
+		// Make sure we can dequeue multiple messages
+		info, err := funcQueue.Dequeue(0)
+		if err != nil {
+			t.Errorf("should have found item on iteration %d %v", lcv, err)
+			return
+		}
+
+		info()
+
+		var result int
+		switch lcv {
+		case 0:
+			result = a0
+			break
+		case 1:
+			result = a1
+			break
+		case 2:
+			result = a2
+			break
+		case 3:
+			result = a3
+			break
+		case 4:
+			result = a4
+			break
+		}
+
+		expected := 100 + lcv
+
+		if result != expected {
+			t.Errorf("Did not get expected result on iteration %d, expected %d, got %d", lcv, expected, result)
+		}
+	}
+
+}
