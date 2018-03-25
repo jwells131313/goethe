@@ -38,93 +38,80 @@
  * holder.
  */
 
-package internal
+package tests
 
 import (
-	"github.com/jwells131313/goethe"
-	"sync"
-	"time"
+	"testing"
+
+	ethe "github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/utilities"
 )
 
-type functionErrorQueue struct {
-	mux  sync.Mutex
-	cond *sync.Cond
+func TestBasicFQFunctionality(t *testing.T) {
+	goethe := utilities.GetGoethe()
 
-	capacity uint32
-	queue    []func() error
-}
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
-// NewFunctionQueue creates a new function queue with the given capacity
-func NewFunctionQueue(userCapacity uint32) goethe.FunctionQueue {
-	retVal := &functionErrorQueue{
-		capacity: userCapacity,
-		queue:    make([]func() error, 0),
+	info, err := funcQueue.Dequeue(0)
+	if err == nil {
+		t.Errorf("should not have found anything in newly created queue")
+		return
+	}
+	if err != ethe.ErrEmptyQueue {
+		t.Errorf("unexpected error returned %v", err)
+		return
+	}
+	if info != nil {
+		t.Errorf("info should have been nil")
+		return
 	}
 
-	retVal.cond = sync.NewCond(&retVal.mux)
-
-	return retVal
-}
-
-func (fq *functionErrorQueue) Enqueue(routine func() error) error {
-	if routine == nil {
+	var fout int
+	f := func() error {
+		fout = 13
 		return nil
 	}
 
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	if uint32(len(fq.queue)) >= fq.capacity {
-		return goethe.ErrAtCapacity
+	err = funcQueue.Enqueue(f)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
 	}
 
-	fq.queue = append(fq.queue, routine)
-
-	fq.cond.Broadcast()
-
-	return nil
-}
-
-func (fq *functionErrorQueue) Dequeue(duration time.Duration) (func() error, error) {
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	currentTime := time.Now()
-	elapsedDuration := time.Since(currentTime)
-
-	for (duration > 0) && (elapsedDuration < duration) && (len(fq.queue) <= 0) {
-		timer := time.AfterFunc(duration-elapsedDuration, func() {
-			fq.cond.Broadcast()
-		})
-
-		fq.cond.Wait()
-
-		timer.Stop()
-
-		elapsedDuration = time.Since(currentTime)
+	info, err = funcQueue.Dequeue(0)
+	if err != nil {
+		t.Errorf("we just added a value, it should be there %v", err)
+		return
+	}
+	if info == nil {
+		t.Errorf("we just added a value, the value itself must not be nil")
+		return
 	}
 
-	if len(fq.queue) <= 0 {
-		return nil, goethe.ErrEmptyQueue
+	err = info()
+	if err != nil {
+		t.Errorf("function returned an error")
 	}
 
-	retVal := fq.queue[0]
-	fq.queue = fq.queue[1:]
+	retVal := fout
 
-	return retVal, nil
-}
+	if retVal != 13 {
+		t.Errorf("function returned unexpected value %d", retVal)
+	}
 
-func (fq *functionErrorQueue) GetCapacity() uint32 {
-	return fq.capacity
-}
+	info, err = funcQueue.Dequeue(0)
+	if err == nil {
+		t.Errorf("after dequing message there should be none left %v", err)
+		return
+	}
+	if err != ethe.ErrEmptyQueue {
+		t.Errorf("unexpected error returned %v", err)
+		return
+	}
+	if info != nil {
+		t.Errorf("after dequeing message there should be no more functions")
+		return
+	}
 
-func (fq *functionErrorQueue) GetSize() int {
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	return len(fq.queue)
-}
-
-func (fq *functionErrorQueue) IsEmpty() bool {
-	return fq.GetSize() <= 0
+	// The basics work
 }
