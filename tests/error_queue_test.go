@@ -44,10 +44,11 @@ import (
 	"errors"
 	"testing"
 
+	ethe "github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
 )
 
-func TestBasicFunctionality(t *testing.T) {
+func TestBasicErrorFunctionality(t *testing.T) {
 	goethe := utilities.GetGoethe()
 
 	errorQueue := goethe.NewErrorQueue(10)
@@ -108,4 +109,53 @@ func TestBasicFunctionality(t *testing.T) {
 	}
 
 	// The basics work
+}
+
+func TestCapacityWorks(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	errorQueue := goethe.NewErrorQueue(10)
+
+	errorInfo := &dummyErrorInformation{
+		tid: 10,
+		err: errors.New("an error"),
+	}
+
+	for lcv := 0; lcv < 10; lcv++ {
+		// All of these enqueues should work
+		err := errorQueue.Enqueue(errorInfo)
+		if err != nil {
+			t.Errorf("unexpected failure enqueing up to capacity %v", err)
+			return
+		}
+	}
+
+	err := errorQueue.Enqueue(errorInfo)
+	if err == nil {
+		t.Errorf("should have been an error, we are one past capacity")
+		return
+	}
+	if err != ethe.ErrAtCapacity {
+		t.Errorf("unexpected error when adding past capacity: %v", err)
+		return
+	}
+
+	for lcv := 0; lcv < 10; lcv++ {
+		// Make sure we can dequeue multiple messages
+		info, found := errorQueue.Dequeue()
+		if !found {
+			t.Errorf("should have found item on iteration %d", lcv)
+			return
+		}
+
+		if info.GetThreadID() != 10 {
+			t.Errorf("unknown value %d on iteration %d", info.GetThreadID(), lcv)
+			return
+		}
+		if info.GetError().Error() != "an error" {
+			t.Errorf("unexpected error %s on iteration %d", info.GetError().Error(), lcv)
+			return
+		}
+	}
+
 }
