@@ -41,7 +41,9 @@
 package tests
 
 import (
+	"sync"
 	"testing"
+	"time"
 
 	ethe "github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
@@ -205,4 +207,122 @@ func TestFQCapacityWorks(t *testing.T) {
 		}
 	}
 
+}
+
+func TestFQEmptyQueueBlocks(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
+
+	current := time.Now()
+
+	_, err := funcQueue.Dequeue(2 * time.Second)
+	if err == nil {
+		t.Error("Expected an error after waiting two seconds")
+		return
+	}
+	if err != ethe.ErrEmptyQueue {
+		t.Errorf("unexpected exception %v", err)
+		return
+	}
+
+	elapsed := time.Since(current)
+	if elapsed < (2 * time.Second) {
+		t.Errorf("should have waited two seconds, only waited %d", elapsed)
+		return
+	}
+}
+
+func foo(a, b, c int) int {
+	return a + b + c
+}
+
+func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
+
+	mux := sync.Mutex{}
+	cond := sync.NewCond(&mux)
+
+	finished := false
+
+	f := func() error {
+		mux.Lock()
+		defer mux.Unlock()
+
+		finished = true
+
+		cond.Broadcast()
+		return nil
+	}
+
+	current := time.Now()
+
+	errorOutput := make(chan error)
+
+	goethe.Go(func() error {
+		g, err := funcQueue.Dequeue(10 * time.Second)
+		if err != nil {
+			errorOutput <- err
+
+			mux.Lock()
+			defer mux.Unlock()
+
+			finished = true
+			cond.Broadcast()
+			return err
+		}
+
+		err = g()
+		if g != nil {
+			errorOutput <- err
+
+			mux.Lock()
+			defer mux.Unlock()
+
+			finished = true
+			cond.Broadcast()
+
+			return err
+		}
+
+		errorOutput <- nil
+
+		return nil
+	})
+
+	time.Sleep(2 * time.Second)
+
+	// nap time is over, send the function
+	err := funcQueue.Enqueue(f)
+	if err != nil {
+		t.Errorf("Could not enqueue function %v", err)
+		return
+	}
+
+	mux.Lock()
+	for !finished {
+		cond.Wait()
+	}
+	mux.Unlock()
+
+	err = <-errorOutput
+	if err != nil {
+		t.Errorf("error from the thread %v", err)
+		return
+	}
+
+	elapsed := time.Since(current)
+
+	if elapsed < (2 * time.Second) {
+		t.Errorf("Should have waited at least two seconds %d", elapsed)
+		return
+	}
+
+	if elapsed >= (10 * time.Second) {
+		t.Errorf("should have exited due to data way longer ago %d", elapsed)
+	}
+
+	t.Logf("Actual elapsedTime %d", elapsed)
 }

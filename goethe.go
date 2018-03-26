@@ -47,6 +47,7 @@ package goethe
 
 import (
 	"errors"
+	"sync"
 	"time"
 )
 
@@ -148,6 +149,10 @@ type Pool interface {
 // is waiting to get in.  If you just use the WriteLock calls
 // this behaves like a counting mutex
 type Lock interface {
+	// Locker the methods in Locker are equivalent to WriteLock and
+	// WriteUnlock
+	sync.Locker
+
 	// ReadLock Locks for read.  Multiple readers on multiple threads
 	// are allowed in simultaneously.  Is counting, but all locks must
 	// be paired with ReadUnlock.  You may get a ReadLock while holding

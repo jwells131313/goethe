@@ -54,23 +54,37 @@ type goetheLock struct {
 
 	readerCounts map[int64]int32
 
-	holdingWriter int64
-	writerCount int32
+	holdingWriter  int64
+	writerCount    int32
 	writersWaiting int64
 }
 
 // NewReaderWriterLock creates a reader
 // writer lock
 func NewReaderWriterLock(pparent goethe.Goethe) goethe.Lock {
-	retVal := &goetheLock {
-		parent: pparent,
+	retVal := &goetheLock{
+		parent:        pparent,
 		holdingWriter: -2,
-		readerCounts: make(map[int64]int32),
+		readerCounts:  make(map[int64]int32),
 	}
 
 	retVal.cond = sync.NewCond(&retVal.goMux)
 
 	return retVal
+}
+
+func (lock *goetheLock) Lock() {
+	err := lock.WriteLock()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (lock *goetheLock) Unlock() {
+	err := lock.WriteUnlock()
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ReadLock Locks for read.  Multiple readers on multiple threads
