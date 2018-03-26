@@ -84,6 +84,10 @@ func (goth *goetheData) Go(userCall func() error) {
 	go invokeStart(tid, userCall)
 }
 
+func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) error {
+	panic("implement me")
+}
+
 func (goth *goetheData) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)

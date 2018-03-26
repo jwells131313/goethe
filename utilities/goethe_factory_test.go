@@ -99,3 +99,27 @@ func TestReturnNegativeOneOnNormalThread(t *testing.T) {
 		t.Error("Non-goth tid must be -1, we got ", nonGothTid)
 	}
 }
+
+func TestGoWithArgs(t *testing.T) {
+	if true {
+		t.Log("Ignoring TestGoWithArgs")
+		return
+	}
+
+	goethe := GetGoethe()
+
+	ret := make(chan int)
+
+	goethe.GoWithArgs(addMe, 1, 2, 3, ret)
+
+	val := <-ret
+
+	if val != (1 + 2 + 3) {
+		t.Errorf("did not get expected result, got %d", val)
+		return
+	}
+}
+
+func addMe(a, b, c int, ret chan int) {
+	ret <- a + b + c
+}
