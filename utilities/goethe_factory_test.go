@@ -41,6 +41,7 @@
 package utilities
 
 import (
+	"errors"
 	"testing"
 )
 
@@ -115,6 +116,18 @@ func TestGoWithArgs(t *testing.T) {
 	}
 }
 
+func TestGoWithArgsFunctionReturnsError(t *testing.T) {
+	goethe := GetGoethe()
+
+	err := errors.New("an error")
+
+	goethe.GoWithArgs(returnError, err)
+}
+
 func addMe(a, b, c int, ret chan int) {
 	ret <- a + b + c
+}
+
+func returnError(echo error) error {
+	return echo
 }

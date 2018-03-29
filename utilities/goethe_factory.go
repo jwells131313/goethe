@@ -58,7 +58,7 @@ type goetheData struct {
 }
 
 var (
-	errorType                  = reflect.TypeOf(errors.New(""))
+	errorType                  = reflect.TypeOf(errors.New("")).String()
 	globalGoethe goethe.Goethe = newGoethe()
 )
 
@@ -197,7 +197,7 @@ func invokeEnd(userCall interface{}, args []reflect.Value) error {
 			return nil
 		}
 
-		if rVal.Type() == errorType {
+		if rVal.Type().String() == "error" {
 			iFace := rVal.Interface()
 			retVal := iFace.(error)
 			return retVal

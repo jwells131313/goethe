@@ -233,10 +233,6 @@ func TestFQEmptyQueueBlocks(t *testing.T) {
 	}
 }
 
-func foo(a, b, c int) int {
-	return a + b + c
-}
-
 func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 	goethe := utilities.GetGoethe()
 
