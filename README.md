@@ -48,24 +48,58 @@ Runs a method under a thread and allows you to get a thread-id without having to
 pass a context around everywhere.
 
 ```go
-import "github.com/jwells131313/goethe/utilities"
-import "github.com/jwells131313/goethe"
+package foo
 
-goethe := utilities.GetGoethe()
+import (
+	"fmt"
+	"github.com/jwells131313/goethe/utilities"
+)
 
-channel := make(chan int64)
+func basic() {
+	goethe := utilities.GetGoethe()
 
-goethe.Go(func() error {
-    // A thread ID!
-    tid := goethe.GetThreadID()
-    
-    // Tell momma about our thread-id
-    channel <- tid
-    
-    return nil
-})
+	channel := make(chan int64)
 
-threadID := <- channel
+	goethe.Go(func() error {
+		// A thread ID!
+		tid := goethe.GetThreadID()
+
+		// Tell momma about our thread-id
+		channel <- tid
+
+		return nil
+	})
+
+	threadID := <-channel
+	fmt.Println("the threadID in my thread was ", threadID)
+}
+```
+
+You can also use a method that takes arguments with goethe.  For this
+use the GoWithArgs method as in the following example:
+
+```go
+package foo
+
+import (
+	"fmt"
+	"github.com/jwells131313/goethe/utilities"
+)
+
+func addMe(a, b, c int, ret chan int) {
+	ret <- a + b + c
+}
+
+func basicWithArgs() {
+	goethe := utilities.GetGoethe()
+
+	channel := make(chan int)
+
+	goethe.GoWithArgs(addMe, 1, 2, 3, channel)
+
+	sum := <-channel
+	fmt.Println("the sum in my thread was ", sum)
+}
 ```
 
 ### Counting/Recursive Locks

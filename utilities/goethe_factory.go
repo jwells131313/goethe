@@ -41,9 +41,11 @@
 package utilities
 
 import (
+	"errors"
 	"fmt"
 	"github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/internal"
+	"reflect"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -55,7 +57,10 @@ type goetheData struct {
 	lastTid int64
 }
 
-var globalGoethe goethe.Goethe = newGoethe()
+var (
+	errorType                  = reflect.TypeOf(errors.New(""))
+	globalGoethe goethe.Goethe = newGoethe()
+)
 
 func newGoethe() goethe.Goethe {
 	retVal := &goetheData{
@@ -79,13 +84,31 @@ func (goth *goetheData) getAndIncrementTid() int64 {
 }
 
 func (goth *goetheData) Go(userCall func() error) {
-	tid := goth.getAndIncrementTid()
-
-	go invokeStart(tid, userCall)
+	goth.GoWithArgs(userCall)
 }
 
 func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) error {
-	panic("implement me")
+	tid := goth.getAndIncrementTid()
+
+	// do some type checking
+	typ := reflect.TypeOf(userCall)
+	kin := typ.Kind()
+	if kin != reflect.Func {
+		return fmt.Errorf("first argument of GoWithArgs must be a function, it is %s", kin.String())
+	}
+
+	arguments := make([]reflect.Value, 0)
+	for _, arg := range args {
+		argValue := reflect.ValueOf(arg)
+
+		arguments = append(arguments, argValue)
+
+		// TODO:  Here it would be nice to type check the parameter value
+	}
+
+	go invokeStart(tid, userCall, arguments)
+
+	return nil
 }
 
 func (goth *goetheData) GetThreadID() int64 {
@@ -154,55 +177,75 @@ func convertToNibbles(tid int64) []byte {
 	return []byte(asString)
 }
 
-func invokeStart(tid int64, userCall func() error) error {
+func invokeStart(tid int64, userCall interface{}, args []reflect.Value) error {
 	nibbles := convertToNibbles(tid)
 
-	return internalInvoke(0, nibbles, userCall)
+	return internalInvoke(0, nibbles, userCall, args)
 }
 
-func invokeEnd(userCall func() error) error {
-	return userCall()
+func invokeEnd(userCall interface{}, args []reflect.Value) error {
+	val := reflect.ValueOf(userCall)
+	retVals := val.Call(args)
+
+	if len(retVals) > 0 {
+		rVal := retVals[0]
+		if rVal.IsNil() {
+			return nil
+		}
+
+		if !rVal.CanInterface() {
+			return nil
+		}
+
+		if rVal.Type() == errorType {
+			iFace := rVal.Interface()
+			retVal := iFace.(error)
+			return retVal
+		}
+	}
+
+	return nil
 }
 
-func internalInvoke(index int, nibbles []byte, userCall func() error) error {
+func internalInvoke(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
 	if index >= len(nibbles) {
-		return invokeEnd(userCall)
+		return invokeEnd(userCall, args)
 	}
 
 	currentFrame := nibbles[index]
 	switch currentFrame {
 	case byte('0'):
-		return xXTidFrame0(index, nibbles, userCall)
+		return xXTidFrame0(index, nibbles, userCall, args)
 	case byte('1'):
-		return xXTidFrame1(index, nibbles, userCall)
+		return xXTidFrame1(index, nibbles, userCall, args)
 	case byte('2'):
-		return xXTidFrame2(index, nibbles, userCall)
+		return xXTidFrame2(index, nibbles, userCall, args)
 	case byte('3'):
-		return xXTidFrame3(index, nibbles, userCall)
+		return xXTidFrame3(index, nibbles, userCall, args)
 	case byte('4'):
-		return xXTidFrame4(index, nibbles, userCall)
+		return xXTidFrame4(index, nibbles, userCall, args)
 	case byte('5'):
-		return xXTidFrame5(index, nibbles, userCall)
+		return xXTidFrame5(index, nibbles, userCall, args)
 	case byte('6'):
-		return xXTidFrame6(index, nibbles, userCall)
+		return xXTidFrame6(index, nibbles, userCall, args)
 	case byte('7'):
-		return xXTidFrame7(index, nibbles, userCall)
+		return xXTidFrame7(index, nibbles, userCall, args)
 	case byte('8'):
-		return xXTidFrame8(index, nibbles, userCall)
+		return xXTidFrame8(index, nibbles, userCall, args)
 	case byte('9'):
-		return xXTidFrame9(index, nibbles, userCall)
+		return xXTidFrame9(index, nibbles, userCall, args)
 	case byte('a'):
-		return xXTidFrameA(index, nibbles, userCall)
+		return xXTidFrameA(index, nibbles, userCall, args)
 	case byte('b'):
-		return xXTidFrameB(index, nibbles, userCall)
+		return xXTidFrameB(index, nibbles, userCall, args)
 	case byte('c'):
-		return xXTidFrameC(index, nibbles, userCall)
+		return xXTidFrameC(index, nibbles, userCall, args)
 	case byte('d'):
-		return xXTidFrameD(index, nibbles, userCall)
+		return xXTidFrameD(index, nibbles, userCall, args)
 	case byte('e'):
-		return xXTidFrameE(index, nibbles, userCall)
+		return xXTidFrameE(index, nibbles, userCall, args)
 	case byte('f'):
-		return xXTidFrameF(index, nibbles, userCall)
+		return xXTidFrameF(index, nibbles, userCall, args)
 	default:
 		panic("not yet implemented")
 
@@ -210,66 +253,66 @@ func internalInvoke(index int, nibbles []byte, userCall func() error) error {
 
 }
 
-func xXTidFrame0(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame0(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame1(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame1(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame2(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame2(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame3(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame3(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame4(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame4(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame5(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame5(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame6(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame6(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame7(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame7(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame8(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame8(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame9(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrame9(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameA(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameA(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameB(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameB(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameC(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameC(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameD(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameD(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameE(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameE(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameF(index int, nibbles []byte, userCall func() error) error {
-	return internalInvoke(index+1, nibbles, userCall)
+func xXTidFrameF(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(index+1, nibbles, userCall, args)
 }

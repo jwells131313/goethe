@@ -38,83 +38,43 @@
  * holder.
  */
 
-package utilities
+package main
 
 import (
-	"testing"
+	"fmt"
+	"github.com/jwells131313/goethe/utilities"
 )
 
-func TestGoetheFactory(t *testing.T) {
-	goethe := GetGoethe()
-	if goethe == nil {
-		t.Error("We did not get a goth")
-		return
-	}
+func basic() {
+	goethe := utilities.GetGoethe()
 
 	channel := make(chan int64)
 
 	goethe.Go(func() error {
+		// A thread ID!
 		tid := goethe.GetThreadID()
+
+		// Tell momma about our thread-id
 		channel <- tid
 
 		return nil
 	})
 
-	goethe.Go(func() error {
-		tid := goethe.GetThreadID()
-		channel <- tid
-
-		return nil
-	})
-
-	foundTid1 := <-channel
-	if foundTid1 <= 9 {
-		t.Error("The tid for the function was less than or equal to 9, an error", foundTid1)
-		return
-	}
-
-	foundTid2 := <-channel
-	if foundTid2 <= 9 {
-		t.Error("The tid for the function was less than or equal to 9, an error", foundTid2)
-		return
-	}
-
-	if foundTid1 == foundTid2 {
-		t.Error("Tids should not be the same, got", foundTid1)
-		return
-	}
-
-	t.Logf("Got tids %v,%v", foundTid1, foundTid2)
-}
-
-func TestReturnNegativeOneOnNormalThread(t *testing.T) {
-	goethe := GetGoethe()
-	if goethe == nil {
-		t.Error("We did not get a goth")
-		return
-	}
-
-	nonGothTid := goethe.GetThreadID()
-	if nonGothTid != -1 {
-		t.Error("Non-goth tid must be -1, we got ", nonGothTid)
-	}
-}
-
-func TestGoWithArgs(t *testing.T) {
-	goethe := GetGoethe()
-
-	ret := make(chan int)
-
-	goethe.GoWithArgs(addMe, 1, 2, 3, ret)
-
-	val := <-ret
-
-	if val != (1 + 2 + 3) {
-		t.Errorf("did not get expected result, got %d", val)
-		return
-	}
+	threadID := <-channel
+	fmt.Println("the threadID in my thread was ", threadID)
 }
 
 func addMe(a, b, c int, ret chan int) {
 	ret <- a + b + c
+}
+
+func basicWithArgs() {
+	goethe := utilities.GetGoethe()
+
+	channel := make(chan int)
+
+	goethe.GoWithArgs(addMe, 1, 2, 3, channel)
+
+	sum := <-channel
+	fmt.Println("the sum in my thread was ", sum)
 }
