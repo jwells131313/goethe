@@ -38,113 +38,28 @@
  * holder.
  */
 
-package internal
+package utilities
 
 import (
 	"github.com/jwells131313/goethe"
-	"sync"
-	"time"
 )
 
-type functionErrorQueue struct {
-	mux  sync.Mutex
-	cond *sync.Cond
-
-	capacity uint32
-	queue    []*goethe.FunctionDescriptor
+type errorInformation struct {
+	tid int64
+	err error
 }
 
-// NewFunctionQueue creates a new function queue with the given capacity
-func NewFunctionQueue(userCapacity uint32) goethe.FunctionQueue {
-	retVal := &functionErrorQueue{
-		capacity: userCapacity,
-		queue:    make([]*goethe.FunctionDescriptor, 0),
+func newErrorinformation(id int64, err error) goethe.ErrorInformation {
+	return &errorInformation{
+		tid: id,
+		err: err,
 	}
-
-	retVal.cond = sync.NewCond(&retVal.mux)
-
-	return retVal
 }
 
-func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{}) error {
-	if userCall == nil {
-		return nil
-	}
-
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	if uint32(len(fq.queue)) >= fq.capacity {
-		return goethe.ErrAtCapacity
-	}
-
-	descriptor := &goethe.FunctionDescriptor{
-		UserCall: userCall,
-		Args:     make([]interface{}, 0),
-	}
-
-	for _, arg := range args {
-		descriptor.Args = append(descriptor.Args, arg)
-	}
-
-	fq.queue = append(fq.queue, descriptor)
-
-	fq.cond.Broadcast()
-
-	return nil
+func (ei *errorInformation) GetThreadID() int64 {
+	return ei.tid
 }
 
-func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*goethe.FunctionDescriptor, error) {
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	currentTime := time.Now()
-	elapsedDuration := time.Since(currentTime)
-
-	for (duration > 0) && (elapsedDuration < duration) && (len(fq.queue) <= 0) {
-		timer := time.AfterFunc(duration-elapsedDuration, func() {
-			fq.cond.Broadcast()
-		})
-
-		fq.cond.Wait()
-
-		timer.Stop()
-
-		elapsedDuration = time.Since(currentTime)
-	}
-
-	if len(fq.queue) <= 0 {
-		return nil, goethe.ErrEmptyQueue
-	}
-
-	retVal := fq.queue[0]
-	fq.queue = fq.queue[1:]
-
-	return retVal, nil
-}
-
-func (fq *functionErrorQueue) GetCapacity() uint32 {
-	return fq.capacity
-}
-
-func (fq *functionErrorQueue) GetSize() int {
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	return len(fq.queue)
-}
-
-func (fq *functionErrorQueue) IsEmpty() bool {
-	return fq.GetSize() <= 0
-}
-
-func (fq *functionErrorQueue) WaitForStateChange(duration time.Duration) {
-	fq.mux.Lock()
-	defer fq.mux.Unlock()
-
-	time.AfterFunc(duration, func() {
-		fq.cond.Broadcast()
-	})
-
-	fq.cond.Wait()
+func (ei *errorInformation) GetError() error {
+	return ei.err
 }

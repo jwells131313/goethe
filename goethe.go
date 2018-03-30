@@ -97,7 +97,8 @@ type Goethe interface {
 	// thread.  functionQueue may not be nil and is how functions are enqueued onto the
 	// thread pool.  errorQueue may be nil but if not nil any error returned by the function
 	// will be enqueued onto the errorQueue.  It is recommended that the implementation of
-	// ErrorQueue have some sort of upper bound
+	// ErrorQueue have some sort of upper bound.  If a pool with the given name already
+	// exists the old pool will be returned along with an ErrPoolAlreadyExists error
 	NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 		functionQueue FunctionQueue, errorQueue ErrorQueue) (Pool, error)
 
@@ -183,18 +184,25 @@ type Lock interface {
 	WriteUnlock() error
 }
 
+// FunctionDescriptor describes a function to be called with
+// the goethe ThreadPool
+type FunctionDescriptor struct {
+	UserCall interface{}
+	Args     []interface{}
+}
+
 // FunctionQueue a queue of functions to be enqueued and dequeued
 // The system can use any FunctionQueue it is given or you can use
 // the ones returned by Goethe.NewBoundedFunctionQueue
 type FunctionQueue interface {
 	// Enqueue queues a function to be run in the pool.  Returns
 	// ErrAtCapacity if the queue is currently at capacity
-	Enqueue(func() error) error
+	Enqueue(userCall interface{}, args ...interface{}) error
 
 	// Dequeue returns a function to be run, waiting the given
 	// duration.  If there is no message within the given
 	// duration return the error returned will be ErrEmptyQueue
-	Dequeue(time.Duration) (func() error, error)
+	Dequeue(time.Duration) (*FunctionDescriptor, error)
 
 	// GetCapacity gets the capacity of this queue
 	GetCapacity() uint32
@@ -204,6 +212,14 @@ type FunctionQueue interface {
 
 	// IsEmpty Returns true if this queue is currently empty
 	IsEmpty() bool
+
+	// WaitForEnqueue will wait for a message to be enqueued
+	// after this method is called or a dequeue has failed with
+	// an empty queue.  Will wait for the given
+	// duration.  This *only* returns when NEW messages have
+	// been enqueued, and hence has a possible race.  Use
+	// with care
+	WaitForStateChange(time.Duration)
 }
 
 // ErrorInformation represents data about an error that occurred
@@ -247,4 +263,7 @@ var (
 	// ErrEmptyQueue returned by FunctionQueue.Dequeue if no function was available inside
 	// of the given duration
 	ErrEmptyQueue = errors.New("queue is empty")
+
+	// ErrPoolAlreadyExists a pool already exist and was returned
+	ErrPoolAlreadyExists = errors.New("pool with this name already exists, new pool not created")
 )

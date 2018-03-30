@@ -41,12 +41,14 @@
 package tests
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
 
 	ethe "github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
+	"reflect"
 )
 
 func TestBasicFQFunctionality(t *testing.T) {
@@ -68,9 +70,7 @@ func TestBasicFQFunctionality(t *testing.T) {
 		return
 	}
 
-	var fout int
 	f := func() error {
-		fout = 13
 		return nil
 	}
 
@@ -90,15 +90,21 @@ func TestBasicFQFunctionality(t *testing.T) {
 		return
 	}
 
-	err = info()
-	if err != nil {
-		t.Errorf("function returned an error")
+	retFunc := info.UserCall
+	if retFunc == nil {
+		t.Errorf("Did not return expected function")
+		return
 	}
 
-	retVal := fout
+	retArgs := info.Args
+	if retArgs == nil {
+		t.Errorf("did not return expected arguments (should have been zero length array)")
+		return
+	}
 
-	if retVal != 13 {
-		t.Errorf("function returned unexpected value %d", retVal)
+	if len(retArgs) != 0 {
+		t.Errorf("should have been an array of zero length %d", len(retArgs))
+		return
 	}
 
 	info, err = funcQueue.Dequeue(0)
@@ -170,43 +176,6 @@ func TestFQCapacityWorks(t *testing.T) {
 		t.Errorf("unexpected error when adding past capacity: %v", err)
 		return
 	}
-
-	for lcv := 0; lcv < 5; lcv++ {
-		// Make sure we can dequeue multiple messages
-		info, err := funcQueue.Dequeue(0)
-		if err != nil {
-			t.Errorf("should have found item on iteration %d %v", lcv, err)
-			return
-		}
-
-		info()
-
-		var result int
-		switch lcv {
-		case 0:
-			result = a0
-			break
-		case 1:
-			result = a1
-			break
-		case 2:
-			result = a2
-			break
-		case 3:
-			result = a3
-			break
-		case 4:
-			result = a4
-			break
-		}
-
-		expected := 100 + lcv
-
-		if result != expected {
-			t.Errorf("Did not get expected result on iteration %d, expected %d, got %d", lcv, expected, result)
-		}
-	}
-
 }
 
 func TestFQEmptyQueueBlocks(t *testing.T) {
@@ -270,8 +239,49 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 			return err
 		}
 
-		err = g()
-		if g != nil {
+		call := g.UserCall
+		vCall := reflect.ValueOf(call)
+
+		vargs := make([]reflect.Value, 0)
+
+		rVArgs := vCall.Call(vargs)
+		if len(rVArgs) != 1 {
+			rErr := errors.New("Should have had one result")
+			errorOutput <- rErr
+
+			finished = true
+			cond.Broadcast()
+			return rErr
+		}
+
+		rVarg := rVArgs[0]
+
+		if rVarg.IsNil() {
+			err = nil
+		} else {
+			if !rVarg.CanInterface() {
+				rErr := errors.New("Can not interface the result")
+				errorOutput <- rErr
+
+				finished = true
+				cond.Broadcast()
+				return rErr
+			}
+
+			iFace := rVarg.Interface()
+			if rVarg.Type().String() != "error" {
+				rErr := errors.New("not the expected return type")
+				errorOutput <- rErr
+
+				finished = true
+				cond.Broadcast()
+				return rErr
+			}
+
+			err = iFace.(error)
+		}
+
+		if err != nil {
 			errorOutput <- err
 
 			mux.Lock()

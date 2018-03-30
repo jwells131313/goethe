@@ -150,7 +150,7 @@ func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) goethe.Function
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors
-// are returned when the ErrorQueue is at capacity the new errors are dropped
+// are returned when the ErrorQueue is at capacity the new errors are droppedmin
 func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
 	return internal.NewBoundedErrorQueue(capacity)
 }
@@ -158,7 +158,8 @@ func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
 // NewPool is the native implementation of NewPool
 func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 	functionQueue goethe.FunctionQueue, errorQueue goethe.ErrorQueue) (goethe.Pool, error) {
-	panic("not implemented")
+	return NewThreadPool(name, minThreads, maxThreads, idleDecayDuration, functionQueue,
+		errorQueue)
 }
 
 // GetPool returns a non-closed pool with the given name.  If not found second
