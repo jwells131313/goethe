@@ -75,8 +75,8 @@ func NewThreadPool(name string, min, max int32, idle time.Duration,
 	if max < 1 {
 		return nil, fmt.Errorf("maximum thread count less than one %d", max)
 	}
-	if min < max {
-		return nil, fmt.Errorf("minimum (%d) is less than maximum (%d)", min, max)
+	if min > max {
+		return nil, fmt.Errorf("minimum (%d) is greater than maximum (%d)", min, max)
 	}
 	if fq == nil {
 		return nil, fmt.Errorf("pool must have a functional queue")
@@ -114,7 +114,7 @@ func (threadPool *threadPool) Start() error {
 		threadPool.currentThreads++
 	}
 
-	goether.GoWithArgs(threadPool.monitor, threadPool)
+	goether.GoWithArgs(threadPool.monitor)
 
 	threadPool.started = true
 
@@ -172,9 +172,9 @@ func (threadPool *threadPool) monitor() {
 			return
 		}
 
-		threadPool.functionalQueue.WaitForStateChange(1 * time.Minute)
-
 		threadPool.monitorOnce()
+
+		threadPool.functionalQueue.WaitForStateChange(1 * time.Minute)
 	}
 }
 
