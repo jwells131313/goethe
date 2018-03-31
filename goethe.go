@@ -266,4 +266,7 @@ var (
 
 	// ErrPoolAlreadyExists a pool already exist and was returned
 	ErrPoolAlreadyExists = errors.New("pool with this name already exists, new pool not created")
+
+	// ErrPoolClosed implies the pool has been closed
+	ErrPoolClosed = errors.New("pool has been closed")
 )

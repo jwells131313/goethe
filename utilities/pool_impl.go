@@ -103,10 +103,18 @@ func (threadPool *threadPool) IsStarted() bool {
 }
 
 func (threadPool *threadPool) Start() error {
-	goether := GetGoethe()
-
 	threadPool.mux.Lock()
 	defer threadPool.mux.Unlock()
+
+	if threadPool.closed {
+		return goethe.ErrPoolClosed
+	}
+
+	if threadPool.started {
+		return nil
+	}
+
+	goether := GetGoethe()
 
 	var lcv int32
 	for lcv = 0; lcv < threadPool.minThreads; lcv++ {
@@ -187,7 +195,7 @@ func (threadPool *threadPool) monitorOnce() {
 		return
 	}
 
-	if threadPool.currentThreads > threadPool.maxThreads {
+	if threadPool.currentThreads >= threadPool.maxThreads {
 		// already at limit
 		return
 	}
