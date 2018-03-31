@@ -71,20 +71,16 @@ func TestTwoWritersMutex(t *testing.T) {
 	goethe := utilities.GetGoethe()
 	lock := goethe.NewGoetheLock()
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, 0, &actualDepth)
-
-		return nil
 	})
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, 0, &actualDepth)
-
-		return nil
 	})
 
 	received, gotValue := waiter.waitForValue(5, 1)
@@ -137,7 +133,7 @@ func TestWriterCanBecomeReader(t *testing.T) {
 	lock := goethe.NewGoetheLock()
 	gotHere := false
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		lock.WriteLock()
 		defer lock.WriteUnlock()
 
@@ -145,8 +141,6 @@ func TestWriterCanBecomeReader(t *testing.T) {
 		defer lock.ReadUnlock()
 
 		gotHere = true
-
-		return nil
 	})
 
 	for lcv := 0; lcv < 200; lcv++ {
@@ -167,13 +161,11 @@ func TestReaderCanNotBecomeWriter(t *testing.T) {
 
 	var err error
 
-	goether.Go(func() error {
+	goether.Go(func() {
 		lock.ReadLock()
 		defer lock.ReadUnlock()
 
 		err = lock.WriteLock()
-
-		return nil
 	})
 
 	for lcv := 0; lcv < 200; lcv++ {
@@ -202,12 +194,10 @@ func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writ
 	lock := goethe.NewGoetheLock()
 
 	for lcv := 0; lcv < numReaders; lcv++ {
-		goethe.Go(func() error {
+		goethe.Go(func() {
 			var actualDepth int
 
 			readValue(lock, waiter, throttle, recurseDepth, &actualDepth)
-
-			return nil
 		})
 	}
 
@@ -220,12 +210,10 @@ func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writ
 	}
 
 	// A reader is in there, now fire up the writer
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, writeRecurseDepth, &actualDepth)
-
-		return nil
 	})
 
 	// Writer should not get this as reader is still in there

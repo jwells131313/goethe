@@ -42,10 +42,23 @@ Threading utilities for GO
 
 ## Usage
 
+This package provides several useful threading and locking utilities for use in golang.  In
+particular goethe (pronounced ger-tay) threads have thread-ids which can be useful for logging
+and in thread pools.
+
+If you use goethe threads you will also have access to counting read/write mutexes inside of
+those threads which can make providing thread-safe libraries easier.
+
+This package maintains one global goethe implementation which can be gotten using the
+github.com/jwells131313/goethe/utilities.GetGoethe() method.
+
+For mor information on the API please see the
+[![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe)
+
 ### ThreadID
 
-Runs a method under a thread and allows you to get a thread-id without having to
-pass a context around everywhere.
+Inside a goethe thread you can use the utilities.GetGoethe() method to get the implementation of Goethe and
+use that to get the ID of the thread in which the code is currently running:
 
 ```go
 package foo
@@ -60,14 +73,12 @@ func basic() {
 
 	channel := make(chan int64)
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		// A thread ID!
 		tid := goethe.GetThreadID()
 
 		// Tell momma about our thread-id
 		channel <- tid
-
-		return nil
 	})
 
 	threadID := <-channel
@@ -126,13 +137,11 @@ import (
 var goether goethe.Goethe = utilities.GetGoethe()
 var lock goethe.Lock = goether.NewGoetheLock()
 
-func writer1() error {
+func writer1() {
 	lock.WriteLock()
 	defer lock.WriteUnlock()
 
 	writer2()
-
-	return nil
 }
 
 func writer2() {

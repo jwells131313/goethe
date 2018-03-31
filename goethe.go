@@ -57,16 +57,16 @@ import (
 type Goethe interface {
 	// Go Runs the given function with the given parameters
 	// in a new go thread.  Will always allocate a new
-	// thread-id
-	Go(func() error)
+	// thread-id.  Returns the tid of the thread run
+	Go(func()) (int64, error)
 
 	// GoWithArgs takes as a first argument any function and
 	// all the remaining fields are the arguments to that function
 	// it is up to the caller to maintain type safety
 	// If this method detects any discrepency between the
 	// function passed in and the number and/or type or arguments
-	// an error is returned
-	GoWithArgs(interface{}, ...interface{}) error
+	// an error is returned.  The thread id is also returned
+	GoWithArgs(interface{}, ...interface{}) (int64, error)
 
 	// GetthreadID Gets the current threadID.  Returns -1
 	// if this is not a goethe thread.  Thread ids start at 10

@@ -50,14 +50,12 @@ func basic() {
 
 	channel := make(chan int64)
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		// A thread ID!
 		tid := goethe.GetThreadID()
 
 		// Tell momma about our thread-id
 		channel <- tid
-
-		return nil
 	})
 
 	threadID := <-channel

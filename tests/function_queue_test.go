@@ -226,7 +226,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 	errorOutput := make(chan error)
 
-	goethe.Go(func() error {
+	goethe.Go(func() {
 		g, err := funcQueue.Dequeue(10 * time.Second)
 		if err != nil {
 			errorOutput <- err
@@ -236,7 +236,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 			finished = true
 			cond.Broadcast()
-			return err
+			return
 		}
 
 		call := g.UserCall
@@ -251,7 +251,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 			finished = true
 			cond.Broadcast()
-			return rErr
+			return
 		}
 
 		rVarg := rVArgs[0]
@@ -265,7 +265,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 				finished = true
 				cond.Broadcast()
-				return rErr
+				return
 			}
 
 			iFace := rVarg.Interface()
@@ -275,7 +275,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 				finished = true
 				cond.Broadcast()
-				return rErr
+				return
 			}
 
 			err = iFace.(error)
@@ -290,12 +290,12 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 			finished = true
 			cond.Broadcast()
 
-			return err
+			return
 		}
 
 		errorOutput <- nil
 
-		return nil
+		return
 	})
 
 	time.Sleep(2 * time.Second)

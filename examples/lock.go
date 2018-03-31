@@ -41,20 +41,18 @@
 package main
 
 import (
-	"github.com/jwells131313/goethe/utilities"
 	"github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/utilities"
 )
 
 var goether goethe.Goethe = utilities.GetGoethe()
 var lock goethe.Lock = goether.NewGoetheLock()
 
-func writer1() error {
+func writer1() {
 	lock.WriteLock()
 	defer lock.WriteUnlock()
 
 	writer2()
-
-	return nil
 }
 
 func writer2() {

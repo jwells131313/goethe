@@ -83,18 +83,18 @@ func (goth *goetheData) getAndIncrementTid() int64 {
 	return goth.lastTid
 }
 
-func (goth *goetheData) Go(userCall func() error) {
-	goth.GoWithArgs(userCall)
+func (goth *goetheData) Go(userCall func()) (int64, error) {
+	return goth.GoWithArgs(userCall)
 }
 
-func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) error {
+func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) (int64, error) {
 	tid := goth.getAndIncrementTid()
 
 	// do some type checking
 	typ := reflect.TypeOf(userCall)
 	kin := typ.Kind()
 	if kin != reflect.Func {
-		return fmt.Errorf("first argument of GoWithArgs must be a function, it is %s", kin.String())
+		return tid, fmt.Errorf("first argument of GoWithArgs must be a function, it is %s", kin.String())
 	}
 
 	arguments := make([]reflect.Value, 0)
@@ -108,7 +108,7 @@ func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) er
 
 	go invokeStart(tid, userCall, arguments)
 
-	return nil
+	return tid, nil
 }
 
 func (goth *goetheData) GetThreadID() int64 {

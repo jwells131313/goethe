@@ -52,29 +52,34 @@ func TestGoetheFactory(t *testing.T) {
 		return
 	}
 
-	channel := make(chan int64)
+	channel1 := make(chan int64)
+	channel2 := make(chan int64)
 
-	goethe.Go(func() error {
+	retTid1, err := goethe.Go(func() {
 		tid := goethe.GetThreadID()
-		channel <- tid
-
-		return nil
+		channel1 <- tid
 	})
+	if err != nil {
+		t.Errorf("error running thread %v", err)
+		return
+	}
 
-	goethe.Go(func() error {
+	retTid2, err := goethe.Go(func() {
 		tid := goethe.GetThreadID()
-		channel <- tid
-
-		return nil
+		channel2 <- tid
 	})
+	if err != nil {
+		t.Errorf("error running thread %v", err)
+		return
+	}
 
-	foundTid1 := <-channel
+	foundTid1 := <-channel1
 	if foundTid1 <= 9 {
 		t.Error("The tid for the function was less than or equal to 9, an error", foundTid1)
 		return
 	}
 
-	foundTid2 := <-channel
+	foundTid2 := <-channel2
 	if foundTid2 <= 9 {
 		t.Error("The tid for the function was less than or equal to 9, an error", foundTid2)
 		return
@@ -82,6 +87,16 @@ func TestGoetheFactory(t *testing.T) {
 
 	if foundTid1 == foundTid2 {
 		t.Error("Tids should not be the same, got", foundTid1)
+		return
+	}
+
+	if foundTid1 != retTid1 {
+		t.Errorf("tid returned from go was %d, tid from inside was %d", retTid1, foundTid1)
+		return
+	}
+
+	if foundTid2 != retTid2 {
+		t.Errorf("tid returned from go(2) was %d, tid from inside was %d", retTid1, foundTid1)
 		return
 	}
 
