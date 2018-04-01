@@ -41,6 +41,7 @@
 package tests
 
 import (
+	ethe "github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
 	"testing"
 	"time"
@@ -181,6 +182,63 @@ func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
 
 	if firstReturn != secondReturn {
 		t.Errorf("the tids should have been the same, but they were different %d/%d", firstReturn, secondReturn)
+		return
+	}
+}
+
+func TestGetMapFunctionality(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
+
+	poolA, found := goethe.GetPool("Pool A")
+	if found {
+		t.Error("Should not have found pool not yet created")
+		return
+	}
+	if poolA != nil {
+		t.Errorf("poolA should have been nil %v", poolA)
+		return
+	}
+
+	poolA, err := goethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
+	if err != nil {
+		t.Errorf("should have been able to create pool")
+		return
+	}
+	if poolA == nil {
+		t.Errorf("pool a should not have been nil")
+		return
+	}
+
+	// Run it again
+	poolA1, err := goethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
+	if err == nil {
+		t.Errorf("should have gotten exception from existing pool")
+		return
+	}
+	if err != ethe.ErrPoolAlreadyExists {
+		t.Errorf("got unexpected error %v", err)
+		return
+	}
+	if poolA1 != poolA {
+		t.Errorf("got a different pool? %v/%v", poolA1, poolA)
+		return
+	}
+
+	poolA1.Close()
+	if !poolA1.IsClosed() {
+		t.Errorf("We just closed it, but its not closed?")
+		return
+	}
+
+	poolA, found = goethe.GetPool("Pool A")
+	if found {
+		t.Error("Should not have found pool not yet created")
+		return
+	}
+	if poolA != nil {
+		t.Errorf("poolA should have been nil %v", poolA)
 		return
 	}
 }
