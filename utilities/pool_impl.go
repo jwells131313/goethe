@@ -56,6 +56,7 @@ type threadPool struct {
 	idleDecay              time.Duration
 	functionalQueue        goethe.FunctionQueue
 	errorQueue             goethe.ErrorQueue
+	parent                 *goetheData
 
 	currentThreads int32
 	threadState    map[int64]int
@@ -67,7 +68,7 @@ const (
 )
 
 // NewThreadPool creates a thread pool
-func NewThreadPool(name string, min, max int32, idle time.Duration,
+func NewThreadPool(par *goetheData, name string, min, max int32, idle time.Duration,
 	fq goethe.FunctionQueue, eq goethe.ErrorQueue) (goethe.Pool, error) {
 	if min < 0 {
 		return nil, fmt.Errorf("minimum thread count less than zero %d", min)
@@ -90,6 +91,7 @@ func NewThreadPool(name string, min, max int32, idle time.Duration,
 		functionalQueue: fq,
 		errorQueue:      eq,
 		threadState:     make(map[int64]int),
+		parent:          par,
 	}
 
 	return retVal, nil
@@ -171,7 +173,13 @@ func (threadPool *threadPool) Close() {
 	threadPool.mux.Lock()
 	defer threadPool.mux.Unlock()
 
+	if threadPool.closed {
+		return
+	}
+
 	threadPool.closed = true
+
+	threadPool.parent.removePool(threadPool.name)
 }
 
 func (threadPool *threadPool) monitor() {

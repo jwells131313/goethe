@@ -123,7 +123,7 @@ func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
 
 	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
-	pool, err := goethe.NewPool("OneOnlyPool", 0, 1, 1*time.Minute, funcQueue, nil)
+	pool, err := goethe.NewPool("ZeroOnePool", 0, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
 		t.Errorf("could not create pool %v", err)
 		return

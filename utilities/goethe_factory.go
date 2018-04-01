@@ -55,6 +55,7 @@ import (
 type goetheData struct {
 	tidMux  sync.Mutex
 	lastTid int64
+	poolMap map[string]goethe.Pool
 }
 
 var (
@@ -65,6 +66,7 @@ var (
 func newGoethe() goethe.Goethe {
 	retVal := &goetheData{
 		lastTid: 9,
+		poolMap: make(map[string]goethe.Pool),
 	}
 
 	return retVal
@@ -158,14 +160,41 @@ func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
 // NewPool is the native implementation of NewPool
 func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 	functionQueue goethe.FunctionQueue, errorQueue goethe.ErrorQueue) (goethe.Pool, error) {
-	return NewThreadPool(name, minThreads, maxThreads, idleDecayDuration, functionQueue,
+	goth.tidMux.Lock()
+	defer goth.tidMux.Unlock()
+
+	foundPool, found := goth.poolMap[name]
+	if found {
+		return foundPool, goethe.ErrPoolAlreadyExists
+	}
+
+	retVal, err := NewThreadPool(goth, name, minThreads, maxThreads, idleDecayDuration, functionQueue,
 		errorQueue)
+	if err != nil {
+		return nil, err
+	}
+
+	goth.poolMap[name] = retVal
+
+	return retVal, nil
 }
 
 // GetPool returns a non-closed pool with the given name.  If not found second
 // value returned will be false
-func (goth *goetheData) GetPool(string) (goethe.Pool, bool) {
-	panic("not implemented")
+func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
+	goth.tidMux.Lock()
+	goth.tidMux.Unlock()
+
+	retVal, found := goth.poolMap[name]
+
+	return retVal, found
+}
+
+func (goth *goetheData) removePool(name string) {
+	goth.tidMux.Lock()
+	goth.tidMux.Unlock()
+
+	delete(goth.poolMap, name)
 }
 
 // convertToNibbles returns the nibbles of the string
