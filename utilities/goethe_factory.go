@@ -271,7 +271,9 @@ func removeThreadLocal(operators *threadLocalOperators, tid int64) {
 		return
 	}
 
-	operators.destroyer(actual)
+	if operators.destroyer != nil {
+		operators.destroyer(actual)
+	}
 
 	delete(operators.actuals, tid)
 }
