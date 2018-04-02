@@ -62,8 +62,12 @@ type threadPool struct {
 	threadState    map[int64]int
 }
 
+// states for each thread in the pool
 const (
+	// WAITING currently waiting on the queue
 	WAITING = 0
+
+	// RUNNING current running user code
 	RUNNING = 1
 )
 
