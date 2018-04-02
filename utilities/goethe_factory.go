@@ -190,6 +190,22 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 	return retVal, found
 }
 
+// EstablishThreadLocal tells the system of the named thread local storage
+// initialize method and destroy method.  This method can be called on any
+// thread, including non-goethe threads
+func (goth *goetheData) EstablishThreadLocal(string, func() interface{}, func(interface{})) error {
+	panic("implement me")
+}
+
+// Get thread local returns the instance of the storage associated with
+// the current goethe thread.  May only be called on goethe threads and
+// will return ErrNotGoetheThread if called from a non-goethe thread.
+// If EstablishThreadLocal with the given name has not been called prior to
+// this function call then ErrNoThreadLocalEstablished will be returned
+func (goth *goetheData) GetThreadLocal(string) (interface{}, error) {
+	panic("implement me")
+}
+
 func (goth *goetheData) removePool(name string) {
 	goth.tidMux.Lock()
 	goth.tidMux.Unlock()

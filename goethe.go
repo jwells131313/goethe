@@ -105,6 +105,18 @@ type Goethe interface {
 	// GetPool returns a non-closed pool with the given name.  If not found second
 	// value returned will be false
 	GetPool(string) (Pool, bool)
+
+	// EstablishThreadLocal tells the system of the named thread local storage
+	// initialize method and destroy method.  This method can be called on any
+	// thread, including non-goethe threads
+	EstablishThreadLocal(string, func() interface{}, func(interface{})) error
+
+	// Get thread local returns the instance of the storage associated with
+	// the current goethe thread.  May only be called on goethe threads and
+	// will return ErrNotGoetheThread if called from a non-goethe thread.
+	// If EstablishThreadLocal with the given name has not been called prior to
+	// this function call then ErrNoThreadLocalEstablished will be returned
+	GetThreadLocal(string) (interface{}, error)
 }
 
 // Pool is used to manage a thread pool.  Every thread pool has one
@@ -252,7 +264,7 @@ var (
 	ErrReadLockHeld = errors.New("attempted to acquire a WriteLock while ReadLock was held")
 
 	// ErrNotGoetheThread returned if any lock is attempted while not in a goethe thread
-	ErrNotGoetheThread = errors.New("function called from non-goth thread")
+	ErrNotGoetheThread = errors.New("function called from non-goethe thread")
 
 	// ErrWriteLockNotHeld returned if a call to WriteUnlock is made while not holding the WriteLock
 	ErrWriteLockNotHeld = errors.New("write lock is not held by this thread")
@@ -269,4 +281,7 @@ var (
 
 	// ErrPoolClosed implies the pool has been closed
 	ErrPoolClosed = errors.New("pool has been closed")
+
+	// ErrNoThreadLocalEstablished No thread local with the given name has been established
+	ErrNoThreadLocalEstablished = errors.New("there is no thread local associated with that name")
 )
