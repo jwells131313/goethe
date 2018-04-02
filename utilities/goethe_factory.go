@@ -53,20 +53,29 @@ import (
 )
 
 type goetheData struct {
-	tidMux  sync.Mutex
-	lastTid int64
-	poolMap map[string]goethe.Pool
+	tidMux       sync.Mutex
+	lastTid      int64
+	poolMap      map[string]goethe.Pool
+	threadLocals map[string]*threadLocalOperators
+}
+
+type threadLocalOperators struct {
+	initializer func() interface{}
+	destroyer   func(interface{})
+	lock        goethe.Lock
+	actuals     map[int64]interface{}
 }
 
 var (
-	errorType                  = reflect.TypeOf(errors.New("")).String()
-	globalGoethe goethe.Goethe = newGoethe()
+	errorType    = reflect.TypeOf(errors.New("")).String()
+	globalGoethe = newGoethe()
 )
 
-func newGoethe() goethe.Goethe {
+func newGoethe() *goetheData {
 	retVal := &goetheData{
-		lastTid: 9,
-		poolMap: make(map[string]goethe.Pool),
+		lastTid:      9,
+		poolMap:      make(map[string]goethe.Pool),
+		threadLocals: make(map[string]*threadLocalOperators),
 	}
 
 	return retVal
@@ -193,8 +202,26 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 // EstablishThreadLocal tells the system of the named thread local storage
 // initialize method and destroy method.  This method can be called on any
 // thread, including non-goethe threads
-func (goth *goetheData) EstablishThreadLocal(string, func() interface{}, func(interface{})) error {
-	panic("implement me")
+func (goth *goetheData) EstablishThreadLocal(name string, initializer func() interface{},
+	destroyer func(interface{})) error {
+	goth.tidMux.Lock()
+	goth.tidMux.Unlock()
+
+	_, found := goth.threadLocals[name]
+	if found {
+		return fmt.Errorf("There is already an established thread local for %s", name)
+	}
+
+	operation := &threadLocalOperators{
+		initializer: initializer,
+		destroyer:   destroyer,
+		lock:        goth.NewGoetheLock(),
+		actuals:     make(map[int64]interface{}),
+	}
+
+	goth.threadLocals[name] = operation
+
+	return nil
 }
 
 // Get thread local returns the instance of the storage associated with
@@ -202,8 +229,60 @@ func (goth *goetheData) EstablishThreadLocal(string, func() interface{}, func(in
 // will return ErrNotGoetheThread if called from a non-goethe thread.
 // If EstablishThreadLocal with the given name has not been called prior to
 // this function call then ErrNoThreadLocalEstablished will be returned
-func (goth *goetheData) GetThreadLocal(string) (interface{}, error) {
-	panic("implement me")
+func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
+	tid := goth.GetThreadID()
+	if tid < int64(0) {
+		return nil, goethe.ErrNotGoetheThread
+	}
+
+	operators, found := goth.getOperatorsByName(name)
+	if !found {
+		return nil, goethe.ErrNoThreadLocalEstablished
+	}
+
+	operators.lock.WriteLock()
+	defer operators.lock.WriteUnlock()
+
+	actual, found := operators.actuals[tid]
+	if !found {
+		actual = operators.initializer()
+
+		operators.actuals[tid] = actual
+	}
+
+	return actual, nil
+}
+
+func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
+	goth.tidMux.Lock()
+	goth.tidMux.Unlock()
+
+	retVal, found := goth.threadLocals[name]
+
+	return retVal, found
+}
+
+func removeThreadLocal(operators *threadLocalOperators, tid int64) {
+	operators.lock.WriteLock()
+	defer operators.lock.WriteUnlock()
+
+	actual, found := operators.actuals[tid]
+	if !found {
+		return
+	}
+
+	operators.destroyer(actual)
+
+	delete(operators.actuals, tid)
+}
+
+func (goth *goetheData) removeAllActuals(tid int64) {
+	goth.tidMux.Lock()
+	goth.tidMux.Unlock()
+
+	for _, operators := range goth.threadLocals {
+		removeThreadLocal(operators, tid)
+	}
 }
 
 func (goth *goetheData) removePool(name string) {
@@ -226,10 +305,12 @@ func convertToNibbles(tid int64) []byte {
 func invokeStart(tid int64, userCall interface{}, args []reflect.Value) error {
 	nibbles := convertToNibbles(tid)
 
-	return internalInvoke(0, nibbles, userCall, args)
+	return internalInvoke(tid, 0, nibbles, userCall, args)
 }
 
-func invokeEnd(userCall interface{}, args []reflect.Value) error {
+func invokeEnd(tid int64, userCall interface{}, args []reflect.Value) error {
+	defer globalGoethe.removeAllActuals(tid)
+
 	val := reflect.ValueOf(userCall)
 	retVals := val.Call(args)
 
@@ -253,112 +334,112 @@ func invokeEnd(userCall interface{}, args []reflect.Value) error {
 	return nil
 }
 
-func internalInvoke(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+func internalInvoke(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
 	if index >= len(nibbles) {
-		return invokeEnd(userCall, args)
+		return invokeEnd(tid, userCall, args)
 	}
 
 	currentFrame := nibbles[index]
 	switch currentFrame {
 	case byte('0'):
-		return xXTidFrame0(index, nibbles, userCall, args)
+		return xXTidFrame0(tid, index, nibbles, userCall, args)
 	case byte('1'):
-		return xXTidFrame1(index, nibbles, userCall, args)
+		return xXTidFrame1(tid, index, nibbles, userCall, args)
 	case byte('2'):
-		return xXTidFrame2(index, nibbles, userCall, args)
+		return xXTidFrame2(tid, index, nibbles, userCall, args)
 	case byte('3'):
-		return xXTidFrame3(index, nibbles, userCall, args)
+		return xXTidFrame3(tid, index, nibbles, userCall, args)
 	case byte('4'):
-		return xXTidFrame4(index, nibbles, userCall, args)
+		return xXTidFrame4(tid, index, nibbles, userCall, args)
 	case byte('5'):
-		return xXTidFrame5(index, nibbles, userCall, args)
+		return xXTidFrame5(tid, index, nibbles, userCall, args)
 	case byte('6'):
-		return xXTidFrame6(index, nibbles, userCall, args)
+		return xXTidFrame6(tid, index, nibbles, userCall, args)
 	case byte('7'):
-		return xXTidFrame7(index, nibbles, userCall, args)
+		return xXTidFrame7(tid, index, nibbles, userCall, args)
 	case byte('8'):
-		return xXTidFrame8(index, nibbles, userCall, args)
+		return xXTidFrame8(tid, index, nibbles, userCall, args)
 	case byte('9'):
-		return xXTidFrame9(index, nibbles, userCall, args)
+		return xXTidFrame9(tid, index, nibbles, userCall, args)
 	case byte('a'):
-		return xXTidFrameA(index, nibbles, userCall, args)
+		return xXTidFrameA(tid, index, nibbles, userCall, args)
 	case byte('b'):
-		return xXTidFrameB(index, nibbles, userCall, args)
+		return xXTidFrameB(tid, index, nibbles, userCall, args)
 	case byte('c'):
-		return xXTidFrameC(index, nibbles, userCall, args)
+		return xXTidFrameC(tid, index, nibbles, userCall, args)
 	case byte('d'):
-		return xXTidFrameD(index, nibbles, userCall, args)
+		return xXTidFrameD(tid, index, nibbles, userCall, args)
 	case byte('e'):
-		return xXTidFrameE(index, nibbles, userCall, args)
+		return xXTidFrameE(tid, index, nibbles, userCall, args)
 	case byte('f'):
-		return xXTidFrameF(index, nibbles, userCall, args)
+		return xXTidFrameF(tid, index, nibbles, userCall, args)
 	default:
-		panic("not yet implemented")
+		panic("unknown type")
 
 	}
 
 }
 
-func xXTidFrame0(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame0(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame1(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame1(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame2(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame2(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame3(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame3(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame4(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame4(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame5(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame5(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame6(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame6(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame7(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame7(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame8(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame8(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrame9(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrame9(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameA(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameA(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameB(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameB(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameC(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameC(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameD(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameD(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameE(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameE(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
 
-func xXTidFrameF(index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
-	return internalInvoke(index+1, nibbles, userCall, args)
+func xXTidFrameF(tid int64, index int, nibbles []byte, userCall interface{}, args []reflect.Value) error {
+	return internalInvoke(tid, index+1, nibbles, userCall, args)
 }
