@@ -177,7 +177,7 @@ func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32,
 		return foundPool, goethe.ErrPoolAlreadyExists
 	}
 
-	retVal, err := NewThreadPool(goth, name, minThreads, maxThreads, idleDecayDuration, functionQueue,
+	retVal, err := newThreadPool(goth, name, minThreads, maxThreads, idleDecayDuration, functionQueue,
 		errorQueue)
 	if err != nil {
 		return nil, err

@@ -72,7 +72,7 @@ const (
 )
 
 // NewThreadPool creates a thread pool
-func NewThreadPool(par *goetheData, name string, min, max int32, idle time.Duration,
+func newThreadPool(par *goetheData, name string, min, max int32, idle time.Duration,
 	fq goethe.FunctionQueue, eq goethe.ErrorQueue) (goethe.Pool, error) {
 	if min < 0 {
 		return nil, fmt.Errorf("minimum thread count less than zero %d", min)
