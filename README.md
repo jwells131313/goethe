@@ -46,13 +46,15 @@ This package provides several useful threading and locking utilities for use in 
 particular goethe (pronounced ger-tay) threads have thread-ids which can be useful for logging
 and in thread pools.
 
-If you use goethe threads you will also have access to counting read/write mutexes inside of
-those threads which can make providing thread-safe libraries easier.
-
 This package maintains one global goethe implementation which can be gotten using the
 github.com/jwells131313/goethe/utilities.GetGoethe() method.
 
-For mor information on the API please see the
+1. [ThreadID](#ThreadID)
+2. [Recursive Locks](#recursive-locks)
+3. [Thread Pools](#thread-pools)
+4. [Thread Local Storage](#thread-local-storage)
+
+For more information on the API please see the
 [![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe)
 
 ### ThreadID
@@ -113,7 +115,7 @@ func basicWithArgs() {
 }
 ```
 
-### Counting/Recursive Locks
+### Recursive Locks
 
 In goethe threads you can have recursive reader/write mutexes which obey the following rules:
 
@@ -155,14 +157,45 @@ func main() {
 ```
 
 If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
-will return an error
+will return an error.
+
+### Thread Pools
+
+Thread pools use goethe threads so that you can use thread-ids, thread-locals and recursive
+locks in your threaded application.
+
+In order to create a thread pool you specify the min threads in the the pool, the max threads
+in the pool and the decay time, which is the time a thread will be idle before being released
+(if the number of threads is greater than the min).  You also give the pool an implementation
+of a FunctionQueue.  You can also get a default implementation of FunctionQueue from the goethe
+service.  However any implementation of FunctionQueue will work, which allows you to use
+priority queues or other queue implementations.  Once a queue is associated with a pool you use
+the queue Enqueue API to give jobs to the thread pool.
+
+You can also give the pool an ErrorQueue.  Any non-nil errors returned from the enqueued jobs will
+be placed on the ErrorQueue.  It is up to the application to check and drain the ErrorQueue for
+errors
+
+UNDER CONSTRUCTION need an example
+
+### Thread Local Storage
+
+Goethe threads can take advantage of named thread local storage.  Thread local storage is first
+established by giving it a name, an initializer function and a destroyer function.  Then
+in your goethe threads you can call GetThreadLocal with the name of your thread local and get
+the type returned by the initializer.  Each thread has its own copy of the type so two threads
+will not interfere with each other.  When the thread goes away the destructor for all named
+thread local storage associated with that thread will be called.
+
+UNDER CONSTRUCTION need an example
+
+### Under Construction
 
 In the future it is intended for goethe to provide the following:
 
-* Thread Local Storage (it *can* be done!)
-* Thread pools
 * Scheduled execution of things (on goethe threads)
 * locks you can try
 * locks you can give up on after some duration
+* Threading Utilities Requests?
 
 ![](https://github.com/jwells131313/goethe/blob/master/images/goth.jpg "Go Thread Utilities")
