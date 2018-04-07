@@ -40,22 +40,20 @@
 
 package main
 
-import (
-	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
-)
+import "fmt"
 
-var goether goethe.Goethe = utilities.GetGoethe()
-var lock goethe.Lock = goether.NewGoetheLock()
+func main() {
+	fmt.Println("Running counting writer locks...")
+	goether.Go(writer1)
 
-func writer1() {
-	lock.WriteLock()
-	defer lock.WriteUnlock()
+	fmt.Println("Running no argument thread example...")
+	basic()
 
-	writer2()
-}
+	fmt.Println("Running method with arguments thread example...")
+	basicWithArgs()
 
-func writer2() {
-	lock.WriteLock()
-	defer lock.WriteUnlock()
+	fmt.Println("Running a thread pool...")
+	useAPool()
+
+	fmt.Println("have a nice day")
 }

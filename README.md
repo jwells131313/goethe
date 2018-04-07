@@ -120,10 +120,10 @@ func basicWithArgs() {
 In goethe threads you can have recursive reader/write mutexes which obey the following rules:
 
 * Only one writer lock is allowed into the critical section
-* When holding a writer lock another writer lock may be acquired (counting)
-* When holding a writer lock you may acquire a reader lock.  The writer lock remains in effect
+* When holding a writer lock on a thread another writer lock may be acquired on the same thread (counting)
+* When holding a writer lock on a thread you may acquire a reader lock on the same thread.  The writer lock remains in effect
 * Many reader locks can be held on multiple different threads
-* When holding a reader lock another reader lock may be acquired on the same thread (counting)
+* When holding a reader lock on a thread another reader lock may be acquired on the same thread (counting)
 * When holding a writer lock you may not acquire a reader lock.  Doing so leads too easily to deadlocks
 * Once a writer asks for the lock no more readers will be able to enter, so writers can starve readers
 

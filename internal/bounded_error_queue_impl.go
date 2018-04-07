@@ -90,3 +90,14 @@ func (errorq *boundedErrorQueue) Dequeue() (goethe.ErrorInformation, bool) {
 
 	return retVal, true
 }
+
+func (errorq *boundedErrorQueue) GetSize() int {
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	return len(errorq.queue)
+}
+
+func (errorq *boundedErrorQueue) IsEmpty() bool {
+	return errorq.GetSize() == 0
+}

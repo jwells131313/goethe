@@ -257,6 +257,12 @@ type ErrorQueue interface {
 	// error queue.  If there were no errors on the queue
 	// the second return value is false
 	Dequeue() (ErrorInformation, bool)
+
+	// GetSize returns the number of items currently in the queue
+	GetSize() int
+
+	// IsEmpty Returns true if this queue is currently empty
+	IsEmpty() bool
 }
 
 var (
