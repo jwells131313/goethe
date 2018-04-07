@@ -176,7 +176,154 @@ You can also give the pool an ErrorQueue.  Any non-nil errors returned from the 
 be placed on the ErrorQueue.  It is up to the application to check and drain the ErrorQueue for
 errors
 
-UNDER CONSTRUCTION need an example
+The following example uses recursive read/write locks, an error queue and a functional queue along
+with a pool.  The actual work done in the randomWork method is just sleeping anywhere from 1 to 99
+milliseconds.  However, if the number of milliseconds to sleep is divisible by 13 then the randomWork
+method will return with an error.  If the number of milliseconds to sleep is divisible by seven
+then randomWork will exit with no error but will not put new work on the queue.  Otherwise random
+work sleeps the amount of time and then adds itself back on the functional queue.  The main
+subroutine called useAPool initializes the pool and starts it and then waits for all the randomWork
+jobs to finish.  The counters to determine if all jobs are finished are protected with read/write
+locks.  Here is the example:
+
+```go
+type poolExample struct {
+	lock      ethe.Lock
+	jobCount  int
+	totalJobs int
+}
+
+func useAPool() error {
+	goethe := utilities.GetGoethe()
+
+	finished := make(chan bool)
+	errors := goethe.NewErrorQueue(1000)
+
+	goethe.Go(func() {
+		poolInstance := &poolExample{
+			lock: goethe.NewGoetheLock(),
+		}
+
+		queue := goethe.NewBoundedFunctionQueue(1000)
+		pool, err := goethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
+		if err != nil {
+			finished <- false
+			return
+		}
+
+		nTime := time.Now()
+		unixNanos := nTime.UnixNano()
+
+		source := rand.NewSource(unixNanos)
+		rand := rand.New(source)
+
+		err = pool.Start()
+		if err != nil {
+			finished <- false
+			return
+		}
+
+		for lcv := 0; lcv < 10; lcv++ {
+			poolInstance.incrementJobs()
+			queue.Enqueue(poolInstance.randomWork, rand)
+		}
+
+		for {
+			poolInstance.lock.ReadLock()
+			currentJobs := poolInstance.jobCount
+			poolInstance.lock.ReadUnlock()
+
+			if currentJobs <= 0 {
+				poolInstance.lock.ReadLock()
+				fmt.Println("Performed a total of ", poolInstance.totalJobs, " jobs")
+				poolInstance.lock.ReadUnlock()
+
+				finished <- true
+				return
+			}
+
+			time.Sleep(time.Second)
+		}
+
+		return
+	})
+
+	result := <-finished
+
+	var errorCount int
+	for !errors.IsEmpty() {
+		errorCount++
+		errorInfo, _ := errors.Dequeue()
+		if errorInfo != nil {
+			fmt.Println("Thread ", errorInfo.GetThreadID(), " returned an error: ", errorInfo.GetError().Error())
+		}
+	}
+
+	if result {
+		fmt.Println("Ended with success along with ", errorCount, " errors")
+	} else {
+		fmt.Println("Ended with failure along with ", errorCount, "errors")
+	}
+
+	return nil
+}
+
+func getRandomWorkTime(rand *rand.Rand) time.Duration {
+	return time.Duration(rand.Uint32()) % 100
+}
+
+func (poolInstance *poolExample) incrementJobs() {
+	poolInstance.lock.WriteLock()
+	defer poolInstance.lock.WriteUnlock()
+
+	poolInstance.jobCount++
+
+	poolInstance.incrementTotalJobs()
+}
+
+func (poolInstance *poolExample) incrementTotalJobs() {
+	poolInstance.lock.WriteLock()
+	defer poolInstance.lock.WriteUnlock()
+
+	poolInstance.totalJobs++
+}
+
+func (poolInstance *poolExample) decrementJobs() {
+	poolInstance.lock.WriteLock()
+	defer poolInstance.lock.WriteUnlock()
+
+	poolInstance.jobCount--
+}
+
+func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
+	defer poolInstance.decrementJobs()
+
+	goethe := utilities.GetGoethe()
+	pool, _ := goethe.GetPool("example")
+
+	waitTime := getRandomWorkTime(rand)
+	if waitTime%13 == 0 {
+		return fmt.Errorf("Failed because we got a wait time of %d milliseconds", waitTime)
+	}
+
+	if waitTime%7 == 0 {
+		return nil
+	}
+
+	time.Sleep(waitTime * time.Millisecond)
+
+	queue := pool.GetFunctionQueue()
+
+	// Keep going
+	poolInstance.incrementJobs()
+	queue.Enqueue(poolInstance.randomWork, rand)
+
+	return nil
+}
+```
+
+One thing to notice is that use of the recursive writeLock is made safely and correctly!  No
+critical seconds were harmed in the making of this example.
 
 ### Thread Local Storage
 
