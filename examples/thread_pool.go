@@ -164,7 +164,6 @@ func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 
 	waitTime := getRandomWorkTime(rand)
 	if waitTime%13 == 0 {
-		fmt.Println("JRW no love for ", waitTime)
 		return fmt.Errorf("Failed because we got a wait time of %d milliseconds", waitTime)
 	}
 

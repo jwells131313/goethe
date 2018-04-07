@@ -71,6 +71,10 @@ const (
 	RUNNING = 1
 )
 
+var (
+	errorInterface = reflect.TypeOf((*error)(nil)).Elem()
+)
+
 // NewThreadPool creates a thread pool
 func newThreadPool(par *goetheData, name string, min, max int32, idle time.Duration,
 	fq goethe.FunctionQueue, eq goethe.ErrorQueue) (goethe.Pool, error) {
@@ -280,14 +284,20 @@ func threadRunner(threadPool *threadPool) {
 			retVals := userCallValue.Call(argsAsVals)
 			if threadPool.errorQueue != nil && len(retVals) > 0 {
 				for _, retVal := range retVals {
-					if !retVal.IsNil() && retVal.CanInterface() && retVal.String() == "error" {
+					if !retVal.IsNil() && retVal.CanInterface() {
 						// First returned value that is not nill and is an error
-						iFace := retVal.Interface()
-						asErr := iFace.(error)
+						it := retVal.Type()
+						isAnError := it.Implements(errorInterface)
 
-						errInfo := newErrorinformation(tid, asErr)
+						if isAnError {
+							iFace := retVal.Interface()
 
-						threadPool.errorQueue.Enqueue(errInfo)
+							asErr := iFace.(error)
+
+							errInfo := newErrorinformation(tid, asErr)
+
+							threadPool.errorQueue.Enqueue(errInfo)
+						}
 
 					}
 

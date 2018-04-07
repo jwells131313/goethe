@@ -316,20 +316,20 @@ func invokeEnd(tid int64, userCall interface{}, args []reflect.Value) error {
 	val := reflect.ValueOf(userCall)
 	retVals := val.Call(args)
 
-	if len(retVals) > 0 {
-		rVal := retVals[0]
-		if rVal.IsNil() {
-			return nil
-		}
+	// pick first returned error and return it
+	for _, retVal := range retVals {
+		if !retVal.IsNil() && retVal.CanInterface() {
+			// First returned value that is not nill and is an error
+			it := retVal.Type()
+			isAnError := it.Implements(errorInterface)
 
-		if !rVal.CanInterface() {
-			return nil
-		}
+			if isAnError {
+				iFace := retVal.Interface()
 
-		if rVal.Type().String() == "error" {
-			iFace := rVal.Interface()
-			retVal := iFace.(error)
-			return retVal
+				asErr := iFace.(error)
+
+				return asErr
+			}
 		}
 	}
 
