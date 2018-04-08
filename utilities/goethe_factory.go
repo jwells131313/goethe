@@ -253,6 +253,27 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 	return actual, nil
 }
 
+// ScheduleAtFixedRate schedules the given method with the given args at
+// a fixed rate.  The duration of the method does not affect when the
+// next method will be run.  The first run will happen only after initialDelay
+// and will then be scheduled at multiples of the period.  An optional
+// error queue can be given to collect all errors thrown from the method.
+// It is the responsibility of the caller to drain the error queue
+func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
+	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
+	panic("implement me")
+}
+
+// ScheduleWithFixedDelay schedules the given method with the given args
+// and will schedule the next run after the method returns and the delay has passed.
+// The first run will happen only after initialDelay
+// An optional error queue can be given to collect all errors thrown from the method.
+// It is the responsibility of the caller to drain the error queue
+func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
+	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
+	panic("implement me")
+}
+
 func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
 	goth.tidMux.Lock()
 	goth.tidMux.Unlock()

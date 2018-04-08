@@ -51,6 +51,18 @@ import (
 	"time"
 )
 
+// Timer represents information about a timer
+type Timer interface {
+	// Cancel cancels the timer
+	Cancel()
+
+	// IsRunning true if this timer is running, false if it has been cancelled
+	IsRunning() bool
+
+	// GetErrorQueue returns the error queue associated with this timer (may be nil)
+	GetErrorQueue() ErrorQueue
+}
+
 // Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
 // local storage
@@ -117,6 +129,23 @@ type Goethe interface {
 	// If EstablishThreadLocal with the given name has not been called prior to
 	// this function call then ErrNoThreadLocalEstablished will be returned
 	GetThreadLocal(string) (interface{}, error)
+
+	// ScheduleAtFixedRate schedules the given method with the given args at
+	// a fixed rate.  The duration of the method does not affect when the
+	// next method will be run.  The first run will happen only after initialDelay
+	// and will then be scheduled at multiples of the period.  An optional
+	// error queue can be given to collect all errors thrown from the method.
+	// It is the responsibility of the caller to drain the error queue
+	ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
+		errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error)
+
+	// ScheduleWithFixedDelay schedules the given method with the given args
+	// and will schedule the next run after the method returns and the delay has passed.
+	// The first run will happen only after initialDelay
+	// An optional error queue can be given to collect all errors thrown from the method.
+	// It is the responsibility of the caller to drain the error queue
+	ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
+		errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error)
 }
 
 // Pool is used to manage a thread pool.  Every thread pool has one
