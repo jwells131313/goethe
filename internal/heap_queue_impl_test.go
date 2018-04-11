@@ -45,51 +45,66 @@ import (
 	"time"
 )
 
+func add(addMe int) *time.Time {
+	t := time.Unix(int64(addMe), 0)
+
+	return &t
+}
+
 func TestHeapAddsAndRemoves(t *testing.T) {
 	heap := NewHeap()
 
-	heap.Add(5)
-	heap.Add(12)
-	heap.Add(10)
-	heap.Add(5)
-	heap.Add(8)
-	heap.Add(10)
-	heap.Add(13)
-	heap.Add(14)
+	heap.Add(add(5), nil)
+	heap.Add(add(12), nil)
+	heap.Add(add(10), nil)
+	heap.Add(add(5), nil)
+	heap.Add(add(8), nil)
+	heap.Add(add(10), nil)
+	heap.Add(add(13), nil)
+	heap.Add(add(14), nil)
 
-	returns := []time.Duration{5, 5, 8, 10, 10, 12, 13, 14}
+	returns := []*time.Time{
+		add(5),
+		add(5),
+		add(8),
+		add(10),
+		add(10),
+		add(12),
+		add(13),
+		add(14),
+	}
 
 	for i, d := range returns {
-		dFound, there := heap.Peek()
+		dFound, _, there := heap.Peek()
 		if !there {
-			t.Errorf("(1) Should have found %d on iteration %d, but found %d", d, i, dFound)
+			t.Errorf("(1) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		if dFound != d {
-			t.Errorf("(2) Should have found %d on iteration %d, but found %d", d, i, dFound)
+		if *dFound != *d {
+			t.Errorf("(2) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		dFound, there = heap.Get()
+		dFound, _, there = heap.Get()
 		if !there {
-			t.Errorf("(3) Should have found %d on iteration %d, but found %d", d, i, dFound)
+			t.Errorf("(3) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		if dFound != d {
-			t.Errorf("(4) Should have found %d on iteration %d, but found %d", d, i, dFound)
+		if *dFound != *d {
+			t.Errorf("(4) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 	}
 
-	_, found := heap.Peek()
+	_, _, found := heap.Peek()
 	if found {
 		t.Errorf("Peek should have returned false")
 		return
 	}
 
-	_, found = heap.Get()
+	_, _, found = heap.Get()
 	if found {
 		t.Errorf("Get should have returned false")
 		return
@@ -100,45 +115,51 @@ func TestHeapAddsAndRemoves(t *testing.T) {
 func TestHeapAddsAndRemovesToGetOnlyLeftSwap(t *testing.T) {
 	heap := NewHeap()
 
-	heap.Add(8)
-	heap.Add(9)
-	heap.Add(10)
-	heap.Add(12)
-	heap.Add(13)
+	heap.Add(add(8), nil)
+	heap.Add(add(9), nil)
+	heap.Add(add(10), nil)
+	heap.Add(add(12), nil)
+	heap.Add(add(13), nil)
 
-	returns := []time.Duration{8, 9, 10, 12, 13}
+	returns := []*time.Time{
+		add(8),
+		add(9),
+		add(10),
+		add(12),
+		add(13),
+	}
 
 	for i, d := range returns {
-		dFound, there := heap.Peek()
+		dFound, _, there := heap.Peek()
 		if !there {
-			t.Errorf("(1) Should have found %d on iteration %d, but found %d", d, i, dFound)
+			t.Errorf("(1) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		if dFound != d {
-			t.Errorf("(2) Should have found %d on iteration %d, but found %d", d, i, dFound)
+		if *dFound != *d {
+			t.Errorf("(2) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		dFound, there = heap.Get()
+		dFound, _, there = heap.Get()
 		if !there {
-			t.Errorf("(3) Should have found %d on iteration %d, but found %d", d, i, dFound)
+			t.Errorf("(3) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 
-		if dFound != d {
-			t.Errorf("(4) Should have found %d on iteration %d, but found %d", d, i, dFound)
+		if *dFound != *d {
+			t.Errorf("(4) Should have found %v on iteration %d, but found %v", d, i, dFound)
 			return
 		}
 	}
 
-	_, found := heap.Peek()
+	_, _, found := heap.Peek()
 	if found {
 		t.Errorf("Peek should have returned false")
 		return
 	}
 
-	_, found = heap.Get()
+	_, _, found = heap.Get()
 	if found {
 		t.Errorf("Get should have returned false")
 		return

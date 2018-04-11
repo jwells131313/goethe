@@ -71,6 +71,10 @@ var (
 	globalGoethe = newGoethe()
 )
 
+const (
+	timerTid = 9
+)
+
 func newGoethe() *goetheData {
 	retVal := &goetheData{
 		lastTid:      9,

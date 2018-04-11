@@ -50,13 +50,14 @@ import (
 // HeapQueue is a queue of durations sorted as least duration first
 // order of add is log n, order of remove is log n
 type HeapQueue interface {
-	Add(time.Duration) error
-	Get() (time.Duration, bool)
-	Peek() (time.Duration, bool)
+	Add(*time.Time, interface{}) error
+	Get() (*time.Time, interface{}, bool)
+	Peek() (*time.Time, interface{}, bool)
 }
 
 type heapNode struct {
-	duration time.Duration
+	time    *time.Time
+	payload interface{}
 }
 
 type heapQueueData struct {
@@ -85,17 +86,14 @@ func getChildren(index int) (int, int) {
 	return tree + 1, tree + 2
 }
 
-func (heap *heapQueueData) Add(duration time.Duration) error {
+func (heap *heapQueueData) Add(time *time.Time, payload interface{}) error {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
-	if duration < 0 {
-		return fmt.Errorf("invalid negative duration %d", duration)
-	}
-
 	nextIndex := len(heap.queue)
 	node := &heapNode{
-		duration: duration,
+		time:    time,
+		payload: payload,
 	}
 	heap.queue = append(heap.queue, node)
 
@@ -103,7 +101,7 @@ func (heap *heapQueueData) Add(duration time.Duration) error {
 	parentIndex := getParent(nextIndex)
 	currentIndex := nextIndex
 
-	for (parentIndex >= 0) && (duration < heap.getDuration(parentIndex)) {
+	for (parentIndex >= 0) && (heap.getTime(parentIndex).After(*time)) {
 		// Must swap
 		heap.queue[parentIndex], heap.queue[currentIndex] = heap.queue[currentIndex], heap.queue[parentIndex]
 
@@ -114,26 +112,27 @@ func (heap *heapQueueData) Add(duration time.Duration) error {
 	return nil
 }
 
-func (heap *heapQueueData) getDuration(index int) time.Duration {
+func (heap *heapQueueData) getTime(index int) *time.Time {
 	node := heap.queue[index]
-	return node.duration
+	return node.time
 }
 
-func (heap *heapQueueData) Get() (time.Duration, bool) {
+func (heap *heapQueueData) Get() (*time.Time, interface{}, bool) {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
 	originalLen := len(heap.queue)
 	if originalLen <= 0 {
-		return -1, false
+		return nil, nil, false
 	}
 
-	retVal := heap.queue[0].duration
+	retVal := heap.queue[0].time
+	retPayload := heap.queue[0].payload
 
 	if originalLen == 1 {
 		// Last one, leave queue empty
 		heap.queue = make([]*heapNode, 0)
-		return retVal, true
+		return retVal, retPayload, true
 	}
 
 	currentLength := originalLen - 1
@@ -144,37 +143,37 @@ func (heap *heapQueueData) Get() (time.Duration, bool) {
 	heap.queue = heap.queue[0:currentLength]
 
 	currentIndex := 0
-	bubbleDuration := heap.queue[0].duration
+	bubbleTime := heap.queue[0].time
 
 	for {
 		leftChild, rightChild := getChildren(currentIndex)
 
 		if leftChild >= currentLength {
 			// We are at the end, no more swaps available
-			return retVal, true
+			return retVal, retPayload, true
 		}
 
 		if rightChild >= currentLength {
 			// Only one more swap available, do it if we need it and leave
-			if bubbleDuration > heap.getDuration(leftChild) {
+			if bubbleTime.After(*(heap.getTime(leftChild))) {
 				// need to swap
 				heap.queue[currentIndex], heap.queue[leftChild] = heap.queue[leftChild], heap.queue[currentIndex]
 			}
 
 			// no need to continue no more swaps possible
-			return retVal, true
+			return retVal, retPayload, true
 		}
 
 		// battle royale, both children are there
 		swapIndex := rightChild // The default is to descend to the right if equal
-		if heap.getDuration(leftChild) < heap.getDuration(rightChild) {
+		if heap.getTime(rightChild).After(*(heap.getTime(leftChild))) {
 			swapIndex = leftChild
 		}
 
-		swapDuration := heap.getDuration(swapIndex)
-		if bubbleDuration <= swapDuration {
+		swapTime := heap.getTime(swapIndex)
+		if swapTime.After(*bubbleTime) {
 			// Done bubbling down, we can leave
-			return retVal, true
+			return retVal, retPayload, true
 		}
 
 		// Must swap and continue
@@ -183,20 +182,20 @@ func (heap *heapQueueData) Get() (time.Duration, bool) {
 		currentIndex = swapIndex
 	}
 
-	return retVal, true
+	return retVal, retPayload, true
 }
 
-func (heap *heapQueueData) Peek() (time.Duration, bool) {
+func (heap *heapQueueData) Peek() (*time.Time, interface{}, bool) {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
 	if len(heap.queue) <= 0 {
-		return -1, false
+		return nil, nil, false
 	}
 
 	node := heap.queue[0]
 
-	return node.duration, true
+	return node.time, node.payload, true
 }
 
 func (heap *heapQueueData) String() string {
@@ -207,13 +206,13 @@ func (heap *heapQueueData) String() string {
 	first := true
 	for _, node := range heap.queue {
 		if first {
-			appendMe := fmt.Sprintf("%d", node.duration)
+			appendMe := fmt.Sprintf("%s", node.time.String())
 
 			retVal = append(retVal, appendMe)
 
 			first = false
 		} else {
-			appendMe := fmt.Sprintf(",%d", node.duration)
+			appendMe := fmt.Sprintf(",%s", node.time.String())
 
 			retVal = append(retVal, appendMe)
 		}
