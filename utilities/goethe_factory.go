@@ -57,7 +57,9 @@ type goetheData struct {
 	lastTid      int64
 	poolMap      map[string]goethe.Pool
 	threadLocals map[string]*threadLocalOperators
-	timer        timerImpl
+
+	timerMux sync.Mutex
+	timer    timerImpl
 }
 
 type threadLocalOperators struct {
@@ -259,12 +261,21 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 }
 
 func (goth *goetheData) startTimer() {
+	goth.timerMux.Lock()
+	defer goth.timerMux.Unlock()
+
+	if goth.timer != nil {
+		return
+	}
+
 	goth.timer = newTimer()
 
 	// Add system job
 	values := make([]reflect.Value, 0)
 	goth.timer.addJob(nil, 0, 24*time.Hour, nil,
 		func() {}, values, false)
+
+	goth.Go(goth.timer.run)
 }
 
 // ScheduleAtFixedRate schedules the given method with the given args at
@@ -275,12 +286,7 @@ func (goth *goetheData) startTimer() {
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
-	goth.tidMux.Lock()
-	defer goth.tidMux.Unlock()
-
-	if goth.timer == nil {
-		goth.startTimer()
-	}
+	goth.startTimer()
 
 	arguments := make([]reflect.Value, 0)
 	for _, arg := range args {
@@ -301,12 +307,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
-	goth.tidMux.Lock()
-	defer goth.tidMux.Unlock()
-
-	if goth.timer == nil {
-		goth.startTimer()
-	}
+	goth.startTimer()
 
 	arguments := make([]reflect.Value, 0)
 	for _, arg := range args {

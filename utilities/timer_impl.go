@@ -141,7 +141,7 @@ func (timer *timerData) runOne() bool {
 	until = (*pop).Sub(now)
 	if until >= 0 {
 		// Also should never happen, peek said it was time
-		timer.addJob(job.initialTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
+		timer.internalAddJob(nil, job.initialTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
 
 		goethe.GoWithArgs(timer.sleepy, until)
 		return true
@@ -165,7 +165,7 @@ func (timer *timerData) runOne() bool {
 
 		nextRunTime := job.initialTime.Add(nextOffset)
 
-		timer.addJob(&nextRunTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
+		timer.internalAddJob(nil, &nextRunTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
 	}
 
 	goethe.GoWithArgs(timer.invoke, job)
@@ -217,7 +217,7 @@ func (timer *timerData) invoke(job *timerJob) {
 
 	nextRun := time.Now().Add(job.delay)
 
-	timer.addJob(&nextRun, 0, job.delay, job.errors, job.method, job.args, job.fixed)
+	timer.internalAddJob(nil, &nextRun, 0, job.delay, job.errors, job.method, job.args, job.fixed)
 }
 
 func (timer *timerData) sleepy(duration time.Duration) {
@@ -238,6 +238,27 @@ func (timer *timerData) sleepy(duration time.Duration) {
 }
 
 func (timer *timerData) addJob(
+	initialTime *time.Time,
+	initialDelay time.Duration,
+	period time.Duration,
+	errorQueue goethe.ErrorQueue,
+	method interface{},
+	arguments []reflect.Value,
+	fixed bool) (goethe.Timer, error) {
+	ethe := GetGoethe()
+
+	retChannel := make(chan goethe.Timer)
+
+	ethe.GoWithArgs(timer.internalAddJob,
+		retChannel, initialTime, initialDelay, period, errorQueue, method, arguments, fixed)
+
+	reply := <-retChannel
+
+	return reply, nil
+}
+
+func (timer *timerData) internalAddJob(
+	retChannel chan goethe.Timer,
 	initialTime *time.Time,
 	initialDelay time.Duration,
 	period time.Duration,
@@ -273,6 +294,10 @@ func (timer *timerData) addJob(
 	}
 
 	timer.cond.Broadcast()
+
+	if retChannel != nil {
+		retChannel <- job
+	}
 
 	return job, nil
 }
