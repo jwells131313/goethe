@@ -57,6 +57,7 @@ type goetheData struct {
 	lastTid      int64
 	poolMap      map[string]goethe.Pool
 	threadLocals map[string]*threadLocalOperators
+	timer        timerImpl
 }
 
 type threadLocalOperators struct {
@@ -257,6 +258,15 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 	return actual, nil
 }
 
+func (goth *goetheData) startTimer() {
+	goth.timer = newTimer()
+
+	// Add system job
+	values := make([]reflect.Value, 0)
+	goth.timer.addJob(nil, 0, 24*time.Hour, nil,
+		func() {}, values, false)
+}
+
 // ScheduleAtFixedRate schedules the given method with the given args at
 // a fixed rate.  The duration of the method does not affect when the
 // next method will be run.  The first run will happen only after initialDelay
@@ -265,7 +275,23 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
-	panic("implement me")
+	goth.tidMux.Lock()
+	defer goth.tidMux.Unlock()
+
+	if goth.timer == nil {
+		goth.startTimer()
+	}
+
+	arguments := make([]reflect.Value, 0)
+	for _, arg := range args {
+		argValue := reflect.ValueOf(arg)
+
+		arguments = append(arguments, argValue)
+
+		// TODO:  Here it would be nice to type check the parameter value
+	}
+
+	return goth.timer.addJob(nil, initialDelay, period, errorQueue, method, arguments, true)
 }
 
 // ScheduleWithFixedDelay schedules the given method with the given args
@@ -275,7 +301,23 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
-	panic("implement me")
+	goth.tidMux.Lock()
+	defer goth.tidMux.Unlock()
+
+	if goth.timer == nil {
+		goth.startTimer()
+	}
+
+	arguments := make([]reflect.Value, 0)
+	for _, arg := range args {
+		argValue := reflect.ValueOf(arg)
+
+		arguments = append(arguments, argValue)
+
+		// TODO:  Here it would be nice to type check the parameter value
+	}
+
+	return goth.timer.addJob(nil, initialDelay, delay, errorQueue, method, arguments, false)
 }
 
 func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
