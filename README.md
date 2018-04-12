@@ -54,8 +54,6 @@ github.com/jwells131313/goethe/utilities.GetGoethe() method.
 3. [Thread Pools](#thread-pools)
 4. [Thread Local Storage](#thread-local-storage)
 
-[![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe)
-
 ### ThreadID
 
 Inside a goethe thread you can use the utilities.GetGoethe() method to get the implementation of Goethe and
