@@ -36,7 +36,7 @@
 [//]: # " only if the new code is made subject to such option by the copyright "
 [//]: # " holder. "
 
-# goethe
+# goethe [![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe) [![wercker status](https://app.wercker.com/status/269d55f515cfd042ec505993f5e3fe88/s/master "wercker status")](https://app.wercker.com/project/byKey/269d55f515cfd042ec505993f5e3fe88)
 
 Threading utilities for GO
 
@@ -54,7 +54,6 @@ github.com/jwells131313/goethe/utilities.GetGoethe() method.
 3. [Thread Pools](#thread-pools)
 4. [Thread Local Storage](#thread-local-storage)
 
-For more information on the API please see the
 [![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe)
 
 ### ThreadID
