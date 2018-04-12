@@ -273,36 +273,13 @@ func threadRunner(threadPool *threadPool) {
 		} else {
 			changeMapState(threadPool, tid, RUNNING)
 
-			argsAsVals := make([]reflect.Value, 0)
-			for _, arg := range descriptor.Args {
-				argsAsVals = append(argsAsVals, reflect.ValueOf(arg))
+			argsAsVals, err := GetValues(descriptor.UserCall, descriptor.Args)
+			if err != nil {
+				// Todo: log this error or something?
+				return
 			}
 
-			userCallValue := reflect.ValueOf(descriptor.UserCall)
-
-			// Call method
-			retVals := userCallValue.Call(argsAsVals)
-			if threadPool.errorQueue != nil && len(retVals) > 0 {
-				for _, retVal := range retVals {
-					if !retVal.IsNil() && retVal.CanInterface() {
-						// First returned value that is not nill and is an error
-						it := retVal.Type()
-						isAnError := it.Implements(errorInterface)
-
-						if isAnError {
-							iFace := retVal.Interface()
-
-							asErr := iFace.(error)
-
-							errInfo := newErrorinformation(tid, asErr)
-
-							threadPool.errorQueue.Enqueue(errInfo)
-						}
-
-					}
-
-				}
-			}
+			Invoke(descriptor.UserCall, argsAsVals, threadPool.errorQueue)
 		}
 	}
 }

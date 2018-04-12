@@ -53,6 +53,7 @@ type HeapQueue interface {
 	Add(*time.Time, interface{}) error
 	Get() (*time.Time, interface{}, bool)
 	Peek() (*time.Time, interface{}, bool)
+	String() string
 }
 
 type heapNode struct {
@@ -205,14 +206,16 @@ func (heap *heapQueueData) String() string {
 
 	first := true
 	for _, node := range heap.queue {
+		u := node.time.Unix()
+
 		if first {
-			appendMe := fmt.Sprintf("%s", node.time.String())
+			appendMe := fmt.Sprintf("%x", u)
 
 			retVal = append(retVal, appendMe)
 
 			first = false
 		} else {
-			appendMe := fmt.Sprintf(",%s", node.time.String())
+			appendMe := fmt.Sprintf(",%x", u)
 
 			retVal = append(retVal, appendMe)
 		}

@@ -108,20 +108,14 @@ func (goth *goetheData) Go(userCall func()) (int64, error) {
 func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) (int64, error) {
 	tid := goth.getAndIncrementTid()
 
-	// do some type checking
-	typ := reflect.TypeOf(userCall)
-	kin := typ.Kind()
-	if kin != reflect.Func {
-		return tid, fmt.Errorf("first argument of GoWithArgs must be a function, it is %s", kin.String())
+	argArray := make([]interface{}, len(args))
+	for index, arg := range args {
+		argArray[index] = arg
 	}
 
-	arguments := make([]reflect.Value, 0)
-	for _, arg := range args {
-		argValue := reflect.ValueOf(arg)
-
-		arguments = append(arguments, argValue)
-
-		// TODO:  Here it would be nice to type check the parameter value
+	arguments, err := GetValues(userCall, argArray)
+	if err != nil {
+		return -1, err
 	}
 
 	go invokeStart(tid, userCall, arguments)
@@ -273,7 +267,8 @@ func (goth *goetheData) startTimer() {
 	// Add system job
 	values := make([]reflect.Value, 0)
 	goth.timer.addJob(nil, 0, 24*time.Hour, nil,
-		func() {}, values, false)
+		func() {
+		}, values, false)
 
 	goth.Go(goth.timer.run)
 }
@@ -288,13 +283,14 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
 	goth.startTimer()
 
-	arguments := make([]reflect.Value, 0)
-	for _, arg := range args {
-		argValue := reflect.ValueOf(arg)
+	argArray := make([]interface{}, len(args))
+	for index, arg := range args {
+		argArray[index] = arg
+	}
 
-		arguments = append(arguments, argValue)
-
-		// TODO:  Here it would be nice to type check the parameter value
+	arguments, err := GetValues(method, argArray)
+	if err != nil {
+		return nil, err
 	}
 
 	return goth.timer.addJob(nil, initialDelay, period, errorQueue, method, arguments, true)
@@ -309,13 +305,14 @@ func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
 	goth.startTimer()
 
-	arguments := make([]reflect.Value, 0)
-	for _, arg := range args {
-		argValue := reflect.ValueOf(arg)
+	argArray := make([]interface{}, len(args))
+	for index, arg := range args {
+		argArray[index] = arg
+	}
 
-		arguments = append(arguments, argValue)
-
-		// TODO:  Here it would be nice to type check the parameter value
+	arguments, err := GetValues(method, argArray)
+	if err != nil {
+		return nil, err
 	}
 
 	return goth.timer.addJob(nil, initialDelay, delay, errorQueue, method, arguments, false)
@@ -381,25 +378,7 @@ func invokeStart(tid int64, userCall interface{}, args []reflect.Value) error {
 func invokeEnd(tid int64, userCall interface{}, args []reflect.Value) error {
 	defer globalGoethe.removeAllActuals(tid)
 
-	val := reflect.ValueOf(userCall)
-	retVals := val.Call(args)
-
-	// pick first returned error and return it
-	for _, retVal := range retVals {
-		if !retVal.IsNil() && retVal.CanInterface() {
-			// First returned value that is not nill and is an error
-			it := retVal.Type()
-			isAnError := it.Implements(errorInterface)
-
-			if isAnError {
-				iFace := retVal.Interface()
-
-				asErr := iFace.(error)
-
-				return asErr
-			}
-		}
-	}
+	Invoke(userCall, args, nil)
 
 	return nil
 }

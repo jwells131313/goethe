@@ -70,10 +70,13 @@ type timerData struct {
 	cond          *sync.Cond
 	heap          internal.HeapQueue
 	nextJobNumber int64
+	sleepy        sleeper
+	nextJob       uint64
 }
 
 type timerJob struct {
 	mux         sync.Mutex
+	jobNumber   uint64
 	initialTime *time.Time
 	cancelled   bool
 	delay       time.Duration
@@ -88,8 +91,9 @@ func newTimer() timerImpl {
 	goethe := GetGoethe()
 
 	retVal := &timerData{
-		mux:  goethe.NewGoetheLock(),
-		heap: internal.NewHeap(),
+		mux:    goethe.NewGoetheLock(),
+		heap:   internal.NewHeap(),
+		sleepy: newSleeper(),
 	}
 
 	retVal.cond = sync.NewCond(retVal.mux)
@@ -108,21 +112,25 @@ func (timer *timerData) runOne() bool {
 	timer.mux.Lock()
 	defer timer.mux.Unlock()
 
-	timer.cond.Wait()
-
 	now := time.Now()
 	now = now.Add(fudgeFactor)
 
-	peek, _, found := timer.heap.Peek()
+	peek, peekNode, found := timer.heap.Peek()
 	if !found {
-		// should never happen due to the system job
+		timer.cond.Wait()
+
 		return true
 	}
+
+	pNode := peekNode.(*timerJob)
 
 	// Is it inside the range
 	until := (*peek).Sub(now)
 	if until >= 0 {
-		goethe.GoWithArgs(timer.sleepy, until)
+		timer.sleepy.sleep(until, timer.cond, pNode.jobNumber)
+
+		timer.cond.Wait()
+
 		return true
 	}
 
@@ -132,7 +140,7 @@ func (timer *timerData) runOne() bool {
 		return true
 	}
 
-	job, ok := payload.(timerJob)
+	job, ok := payload.(*timerJob)
 	if !ok {
 		// should never happen?
 		return true
@@ -143,7 +151,7 @@ func (timer *timerData) runOne() bool {
 		// Also should never happen, peek said it was time
 		timer.internalAddJob(nil, job.initialTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
 
-		goethe.GoWithArgs(timer.sleepy, until)
+		timer.sleepy.sleep(until, timer.cond, job.jobNumber)
 		return true
 	}
 
@@ -170,45 +178,22 @@ func (timer *timerData) runOne() bool {
 
 	goethe.GoWithArgs(timer.invoke, job)
 
-	peek, _, found = timer.heap.Peek()
+	peek, peekNode, found = timer.heap.Peek()
 	if !found {
-		// should never happen due to the system job
 		return true
 	}
 
+	pNode = peekNode.(*timerJob)
+
 	// Is it inside the range
 	until = time.Until(*peek)
-	goethe.GoWithArgs(timer.sleepy, until)
+	timer.sleepy.sleep(until, timer.cond, pNode.jobNumber)
 
 	return true
 }
 
 func (timer *timerData) invoke(job *timerJob) {
-	val := reflect.ValueOf(job.method)
-	retVals := val.Call(job.args)
-
-	if job.errors != nil {
-		tid := GetGoethe().GetThreadID()
-
-		// pick first returned error and return it
-		for _, retVal := range retVals {
-			if !retVal.IsNil() && retVal.CanInterface() {
-				// First returned value that is not nill and is an error
-				it := retVal.Type()
-				isAnError := it.Implements(errorInterface)
-
-				if isAnError {
-					iFace := retVal.Interface()
-
-					asErr := iFace.(error)
-
-					errInfo := newErrorinformation(tid, asErr)
-
-					job.errors.Enqueue(errInfo)
-				}
-			}
-		}
-	}
+	Invoke(job.method, job.args, job.errors)
 
 	if job.fixed {
 		// parent put new job on
@@ -218,23 +203,6 @@ func (timer *timerData) invoke(job *timerJob) {
 	nextRun := time.Now().Add(job.delay)
 
 	timer.internalAddJob(nil, &nextRun, 0, job.delay, job.errors, job.method, job.args, job.fixed)
-}
-
-func (timer *timerData) sleepy(duration time.Duration) {
-	if duration < 10 {
-		timer.mux.Lock()
-		defer timer.mux.Unlock()
-
-		timer.cond.Broadcast()
-		return
-	}
-
-	time.Sleep(duration)
-
-	timer.mux.Lock()
-	defer timer.mux.Unlock()
-
-	timer.cond.Broadcast()
 }
 
 func (timer *timerData) addJob(
@@ -276,6 +244,12 @@ func (timer *timerData) internalAddJob(
 		firstRun = initialTime
 	}
 
+	timer.mux.Lock()
+	defer timer.mux.Unlock()
+
+	nextJob := timer.nextJob
+	timer.nextJob++
+
 	job := &timerJob{
 		initialTime: firstRun,
 		delay:       period,
@@ -283,10 +257,8 @@ func (timer *timerData) internalAddJob(
 		method:      method,
 		args:        arguments,
 		errors:      errorQueue,
+		jobNumber:   nextJob,
 	}
-
-	timer.mux.Lock()
-	defer timer.mux.Unlock()
 
 	err := timer.heap.Add(firstRun, job)
 	if err != nil {
@@ -315,7 +287,7 @@ func (job *timerJob) IsRunning() bool {
 	job.mux.Lock()
 	defer job.mux.Unlock()
 
-	return job.cancelled
+	return !job.cancelled
 }
 
 // GetErrorQueue returns the error queue associated with this timer (may be nil)

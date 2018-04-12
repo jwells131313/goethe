@@ -80,11 +80,11 @@ func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{})
 
 	descriptor := &goethe.FunctionDescriptor{
 		UserCall: userCall,
-		Args:     make([]interface{}, 0),
+		Args:     make([]interface{}, len(args)),
 	}
 
-	for _, arg := range args {
-		descriptor.Args = append(descriptor.Args, arg)
+	for index, arg := range args {
+		descriptor.Args[index] = arg
 	}
 
 	fq.queue = append(fq.queue, descriptor)
