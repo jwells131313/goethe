@@ -60,7 +60,7 @@ func TestEverySecondForTenSeconds(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	if count != 10 {
+	if count != 10 && count != 11 {
 		t.Errorf("expected ten but got %d", count)
 		return
 	}
