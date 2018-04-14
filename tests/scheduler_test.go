@@ -66,6 +66,34 @@ func TestEverySecondForTenSeconds(t *testing.T) {
 	}
 }
 
+func TestAtFixedRate(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	var count int
+
+	// add and sleep adds and sleeps for 2, but that should not affect the every second rate
+	timer, err := goethe.ScheduleAtFixedRate(0, 1*time.Second, nil, addAndSleep, &count)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+	defer timer.Cancel()
+
+	time.Sleep(10 * time.Second)
+
+	if count != 10 && count != 11 {
+		t.Errorf("expected ten but got %d", count)
+		return
+	}
+
+}
+
 func hi(addToMe *int) {
 	*addToMe = *addToMe + 1
+}
+
+func addAndSleep(addToMe *int) {
+	*addToMe = *addToMe + 1
+
+	time.Sleep(2 * time.Second)
 }

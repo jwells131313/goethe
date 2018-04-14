@@ -63,10 +63,10 @@ type goetheData struct {
 }
 
 type threadLocalOperators struct {
-	initializer func() interface{}
-	destroyer   func(interface{})
+	initializer func(goethe.ThreadLocal)
+	destroyer   func(goethe.ThreadLocal)
 	lock        goethe.Lock
-	actuals     map[int64]interface{}
+	actuals     map[int64]goethe.ThreadLocal
 }
 
 var (
@@ -203,8 +203,8 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 // EstablishThreadLocal tells the system of the named thread local storage
 // initialize method and destroy method.  This method can be called on any
 // thread, including non-goethe threads
-func (goth *goetheData) EstablishThreadLocal(name string, initializer func() interface{},
-	destroyer func(interface{})) error {
+func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goethe.ThreadLocal),
+	destroyer func(goethe.ThreadLocal)) error {
 	goth.tidMux.Lock()
 	goth.tidMux.Unlock()
 
@@ -217,7 +217,7 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func() int
 		initializer: initializer,
 		destroyer:   destroyer,
 		lock:        goth.NewGoetheLock(),
-		actuals:     make(map[int64]interface{}),
+		actuals:     make(map[int64]goethe.ThreadLocal),
 	}
 
 	goth.threadLocals[name] = operation
@@ -230,7 +230,7 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func() int
 // will return ErrNotGoetheThread if called from a non-goethe thread.
 // If EstablishThreadLocal with the given name has not been called prior to
 // this function call then ErrNoThreadLocalEstablished will be returned
-func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
+func (goth *goetheData) GetThreadLocal(name string) (goethe.ThreadLocal, error) {
 	tid := goth.GetThreadID()
 	if tid < int64(0) {
 		return nil, goethe.ErrNotGoetheThread
@@ -238,7 +238,14 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 
 	operators, found := goth.getOperatorsByName(name)
 	if !found {
-		return nil, goethe.ErrNoThreadLocalEstablished
+		operators = &threadLocalOperators{
+			lock:    goth.NewGoetheLock(),
+			actuals: make(map[int64]goethe.ThreadLocal),
+		}
+
+		goth.tidMux.Lock()
+		goth.threadLocals[name] = operators
+		goth.tidMux.Unlock()
 	}
 
 	operators.lock.WriteLock()
@@ -246,7 +253,11 @@ func (goth *goetheData) GetThreadLocal(name string) (interface{}, error) {
 
 	actual, found := operators.actuals[tid]
 	if !found {
-		actual = operators.initializer()
+		actual = internal.NewThreadLocal(name, goth, tid)
+
+		if operators.initializer != nil {
+			operators.initializer(actual)
+		}
 
 		operators.actuals[tid] = actual
 	}
@@ -271,6 +282,8 @@ func (goth *goetheData) startTimer() {
 		}, values, false)
 
 	goth.Go(goth.timer.run)
+
+	goth.EstablishThreadLocal(goethe.TimerThreadLocal, nil, nil)
 }
 
 // ScheduleAtFixedRate schedules the given method with the given args at

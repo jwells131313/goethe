@@ -38,96 +38,48 @@
  * holder.
  */
 
-package tests
+package internal
 
-import (
-	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
-	"testing"
-	"time"
-)
+import "github.com/jwells131313/goethe"
 
-type Local struct {
-	count int
+type threadLocal struct {
+	parent goethe.Goethe
+	tid    int64
+	name   string
+	data   interface{}
 }
 
-var locals = make([]*Local, 0)
-
-func TestThreadLocalStorage(t *testing.T) {
-	goethe := utilities.GetGoethe()
-
-	funcQueue := goethe.NewBoundedFunctionQueue(100)
-
-	pool, err := goethe.NewPool("OneOnlyPool", 2, 2, 1*time.Minute, funcQueue, nil)
-	if err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-	defer pool.Close()
-
-	err = goethe.EstablishThreadLocal("Alice", initializer, nil)
-	if err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	err = pool.Start()
-	if err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	for lcv := 0; lcv < 100; lcv++ {
-		funcQueue.Enqueue(adder)
-	}
-
-	for getCurrentCount() < 100 {
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	time.Sleep(2 * time.Second)
-
-	finalCount := getCurrentCount()
-
-	if finalCount != 100 {
-		t.Errorf("expected 100, got %d", finalCount)
-		return
+// NewThreadLocal returns a new thread local for a specific thread
+func NewThreadLocal(name string, parent goethe.Goethe, tid int64) goethe.ThreadLocal {
+	return &threadLocal{
+		parent: parent,
+		tid:    tid,
+		name:   name,
 	}
 }
 
-func getCurrentCount() int {
-	var retVal = 0
-
-	for _, local := range locals {
-		retVal += local.count
+func (local *threadLocal) GetName() (string, error) {
+	if local.parent.GetThreadID() != local.tid {
+		return local.name, goethe.ErrNotCalledOnCorrectThread
 	}
 
-	return retVal
+	return local.name, nil
 }
 
-func initializer(tl goethe.ThreadLocal) {
-	retVal := &Local{}
-	tl.Set(retVal)
-
-	locals = append(locals, retVal)
-}
-
-func adder() error {
-	goethe := utilities.GetGoethe()
-
-	tl, err := goethe.GetThreadLocal("Alice")
-	if err != nil {
-		return err
+func (local *threadLocal) Set(d interface{}) error {
+	if local.parent.GetThreadID() != local.tid {
+		return goethe.ErrNotCalledOnCorrectThread
 	}
 
-	iface, err := tl.Get()
-	if err != nil {
-		return err
-	}
-
-	local := iface.(*Local)
-
-	local.count++
+	local.data = d
 
 	return nil
+}
+
+func (local *threadLocal) Get() (interface{}, error) {
+	if local.parent.GetThreadID() != local.tid {
+		return nil, goethe.ErrNotCalledOnCorrectThread
+	}
+
+	return local.data, nil
 }

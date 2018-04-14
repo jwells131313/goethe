@@ -63,6 +63,19 @@ type Timer interface {
 	GetErrorQueue() ErrorQueue
 }
 
+// ThreadLocal is returned from GetThreadLocal, a different
+// one for each goethe thread
+type ThreadLocal interface {
+	// The name of this thread local
+	GetName() (string, error)
+
+	// Sets the value of this thread local
+	Set(interface{}) error
+
+	// Gets the value of this thread local
+	Get() (interface{}, error)
+}
+
 // Goethe a service which runs your routines in threads
 // that can have things such as threadIds and thread
 // local storage
@@ -120,15 +133,17 @@ type Goethe interface {
 
 	// EstablishThreadLocal tells the system of the named thread local storage
 	// initialize method and destroy method.  This method can be called on any
-	// thread, including non-goethe threads
-	EstablishThreadLocal(string, func() interface{}, func(interface{})) error
+	// thread, including non-goethe threads.  Both the initializer and
+	// destroyer methods may be nil
+	EstablishThreadLocal(name string, initializer func(ThreadLocal), destroyer func(ThreadLocal)) error
 
 	// Get thread local returns the instance of the storage associated with
 	// the current goethe thread.  May only be called on goethe threads and
 	// will return ErrNotGoetheThread if called from a non-goethe thread.
 	// If EstablishThreadLocal with the given name has not been called prior to
-	// this function call then ErrNoThreadLocalEstablished will be returned
-	GetThreadLocal(string) (interface{}, error)
+	// this function call then a ThreadLocal with no initializer/destroyer
+	// methods will be used
+	GetThreadLocal(string) (ThreadLocal, error)
 
 	// ScheduleAtFixedRate schedules the given method with the given args at
 	// a fixed rate.  The duration of the method does not affect when the
@@ -317,6 +332,11 @@ var (
 	// ErrPoolClosed implies the pool has been closed
 	ErrPoolClosed = errors.New("pool has been closed")
 
-	// ErrNoThreadLocalEstablished No thread local with the given name has been established
-	ErrNoThreadLocalEstablished = errors.New("there is no thread local associated with that name")
+	// ErrNotCalledOnCorrectThread This method was called on a ThreadLocal from a thread other than its own
+	ErrNotCalledOnCorrectThread = errors.New("called from an illegal thread")
+)
+
+const (
+	// TimerThreadLocal A thread local with this name will have the Timer when called from a scheuled job
+	TimerThreadLocal = "goethe.Timer"
 )
