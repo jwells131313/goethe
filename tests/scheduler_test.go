@@ -41,6 +41,7 @@
 package tests
 
 import (
+	"github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/utilities"
 	"testing"
 	"time"
@@ -88,6 +89,31 @@ func TestAtFixedRate(t *testing.T) {
 
 }
 
+func TestRunOnceAndCancel(t *testing.T) {
+	goethe := utilities.GetGoethe()
+
+	var count int
+
+	// add and sleep adds and sleeps for 2, but that should not affect the every second rate
+	timer, err := goethe.ScheduleWithFixedDelay(0, 1*time.Second, nil, runOnceAndCancel, &count)
+	if err != nil {
+		t.Errorf("%v", err)
+		return
+	}
+
+	time.Sleep(3 * time.Second)
+
+	if count != 1 {
+		t.Errorf("expected one but got %d", count)
+		return
+	}
+
+	if timer.IsRunning() {
+		t.Errorf("timer did not get cancelled?")
+		return
+	}
+}
+
 func hi(addToMe *int) {
 	*addToMe = *addToMe + 1
 }
@@ -96,4 +122,19 @@ func addAndSleep(addToMe *int) {
 	*addToMe = *addToMe + 1
 
 	time.Sleep(2 * time.Second)
+}
+
+func runOnceAndCancel(addToMe *int) {
+	*addToMe = *addToMe + 1
+
+	tl, _ := utilities.GetGoethe().GetThreadLocal(goethe.TimerThreadLocal)
+	if tl != nil {
+		iface, _ := tl.Get()
+
+		if iface != nil {
+			timer := iface.(goethe.Timer)
+
+			timer.Cancel()
+		}
+	}
 }

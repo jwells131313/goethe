@@ -53,6 +53,10 @@ type Local struct {
 
 var locals = make([]*Local, 0)
 
+const (
+	threadLocalName = "TestThreadLocal"
+)
+
 func TestThreadLocalStorage(t *testing.T) {
 	goethe := utilities.GetGoethe()
 
@@ -65,7 +69,7 @@ func TestThreadLocalStorage(t *testing.T) {
 	}
 	defer pool.Close()
 
-	err = goethe.EstablishThreadLocal("Alice", initializer, nil)
+	err = goethe.EstablishThreadLocal(threadLocalName, initializer, nil)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -115,7 +119,7 @@ func initializer(tl goethe.ThreadLocal) {
 func adder() error {
 	goethe := utilities.GetGoethe()
 
-	tl, err := goethe.GetThreadLocal("Alice")
+	tl, err := goethe.GetThreadLocal(threadLocalName)
 	if err != nil {
 		return err
 	}

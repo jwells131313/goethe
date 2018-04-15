@@ -41,6 +41,7 @@
 package utilities
 
 import (
+	"fmt"
 	"github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/internal"
 	"reflect"
@@ -56,7 +57,6 @@ type timerImpl interface {
 	run()
 
 	addJob(
-		initialTime *time.Time,
 		initialDelay time.Duration,
 		period time.Duration,
 		errorQueue goethe.ErrorQueue,
@@ -74,9 +74,12 @@ type timerData struct {
 	nextJob       uint64
 }
 
+type nextJob struct {
+	jobNumber uint64
+}
+
 type timerJob struct {
 	mux         sync.Mutex
-	jobNumber   uint64
 	initialTime *time.Time
 	cancelled   bool
 	delay       time.Duration
@@ -84,6 +87,8 @@ type timerJob struct {
 	method      interface{}
 	args        []reflect.Value
 	errors      goethe.ErrorQueue
+
+	next *nextJob
 }
 
 // NewTimer creates a timer for use with the goethe scheduler
@@ -112,9 +117,6 @@ func (timer *timerData) runOne() bool {
 	timer.mux.Lock()
 	defer timer.mux.Unlock()
 
-	now := time.Now()
-	now = now.Add(fudgeFactor)
-
 	peek, peekNode, found := timer.heap.Peek()
 	if !found {
 		timer.cond.Wait()
@@ -122,42 +124,34 @@ func (timer *timerData) runOne() bool {
 		return true
 	}
 
+	now := time.Now()
+	now = now.Add(fudgeFactor)
+
 	pNode := peekNode.(*timerJob)
 
 	// Is it inside the range
 	until := (*peek).Sub(now)
 	if until >= 0 {
-		timer.sleepy.sleep(until, timer.cond, pNode.jobNumber)
+		timer.sleepy.sleep(until, timer.cond, pNode.next.jobNumber)
 
 		timer.cond.Wait()
 
 		return true
 	}
 
-	pop, payload, found := timer.heap.Get()
+	_, payload, found := timer.heap.Get()
 	if !found {
 		// should never happen because peek said it was there
 		return true
 	}
 
-	job, ok := payload.(*timerJob)
-	if !ok {
-		// should never happen?
-		return true
-	}
-
-	until = (*pop).Sub(now)
-	if until >= 0 {
-		// Also should never happen, peek said it was time
-		timer.internalAddJob(nil, job.initialTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
-
-		timer.sleepy.sleep(until, timer.cond, job.jobNumber)
-		return true
-	}
+	job := payload.(*timerJob)
 
 	// Ok, time to actually run the job!
 	if !job.IsRunning() {
-		// cancelled, just return
+		// cancelled, schedule next and go
+		timer.scheduleNextWakeUp()
+
 		return true
 	}
 
@@ -173,26 +167,50 @@ func (timer *timerData) runOne() bool {
 
 		nextRunTime := job.initialTime.Add(nextOffset)
 
-		timer.internalAddJob(nil, &nextRunTime, 0, job.delay, job.errors, job.method, job.args, job.fixed)
+		timer.scheduleNext(job, &nextRunTime)
 	}
 
-	goethe.GoWithArgs(timer.invoke, job)
+	goethe.GoWithArgs(timer.invoke, goethe, job)
 
-	peek, peekNode, found = timer.heap.Peek()
-	if !found {
-		return true
-	}
-
-	pNode = peekNode.(*timerJob)
-
-	// Is it inside the range
-	until = time.Until(*peek)
-	timer.sleepy.sleep(until, timer.cond, pNode.jobNumber)
+	// schedule next guy to go
+	timer.scheduleNextWakeUp()
 
 	return true
 }
 
-func (timer *timerData) invoke(job *timerJob) {
+func (timer *timerData) scheduleNextWakeUp() {
+	timer.mux.Lock()
+	defer timer.mux.Unlock()
+
+	peek, peekNode, found := timer.heap.Peek()
+	if !found {
+		return
+	}
+
+	pNode := peekNode.(*timerJob)
+
+	if pNode.next == nil {
+		// Should not be possible, but account for it
+		return
+	}
+
+	until := time.Until(*peek)
+	timer.sleepy.sleep(until, timer.cond, pNode.next.jobNumber)
+}
+
+func (timer *timerData) invoke(ethe goethe.Goethe, job *timerJob) {
+	tl, err := ethe.GetThreadLocal(goethe.TimerThreadLocal)
+	if err != nil {
+		if job.errors != nil {
+			ei := newErrorinformation(ethe.GetThreadID(), fmt.Errorf("could not find TimerThreadLocal"))
+			job.errors.Enqueue(ei)
+		}
+
+		return
+	}
+
+	tl.Set(job)
+
 	Invoke(job.method, job.args, job.errors)
 
 	if job.fixed {
@@ -202,11 +220,10 @@ func (timer *timerData) invoke(job *timerJob) {
 
 	nextRun := time.Now().Add(job.delay)
 
-	timer.internalAddJob(nil, &nextRun, 0, job.delay, job.errors, job.method, job.args, job.fixed)
+	timer.scheduleNext(job, &nextRun)
 }
 
 func (timer *timerData) addJob(
-	initialTime *time.Time,
 	initialDelay time.Duration,
 	period time.Duration,
 	errorQueue goethe.ErrorQueue,
@@ -215,63 +232,47 @@ func (timer *timerData) addJob(
 	fixed bool) (goethe.Timer, error) {
 	ethe := GetGoethe()
 
-	retChannel := make(chan goethe.Timer)
+	now := time.Now()
+	added := now.Add(initialDelay)
 
-	ethe.GoWithArgs(timer.internalAddJob,
-		retChannel, initialTime, initialDelay, period, errorQueue, method, arguments, fixed)
-
-	reply := <-retChannel
-
-	return reply, nil
-}
-
-func (timer *timerData) internalAddJob(
-	retChannel chan goethe.Timer,
-	initialTime *time.Time,
-	initialDelay time.Duration,
-	period time.Duration,
-	errorQueue goethe.ErrorQueue,
-	method interface{},
-	arguments []reflect.Value,
-	fixed bool) (goethe.Timer, error) {
-
-	var firstRun *time.Time
-	if initialTime == nil {
-		now := time.Now()
-		added := now.Add(initialDelay)
-		firstRun = &added
-	} else {
-		firstRun = initialTime
-	}
-
-	timer.mux.Lock()
-	defer timer.mux.Unlock()
-
-	nextJob := timer.nextJob
-	timer.nextJob++
-
-	job := &timerJob{
-		initialTime: firstRun,
+	retVal := &timerJob{
+		initialTime: &added,
 		delay:       period,
 		fixed:       fixed,
 		method:      method,
 		args:        arguments,
 		errors:      errorQueue,
-		jobNumber:   nextJob,
 	}
 
-	err := timer.heap.Add(firstRun, job)
+	_, err := ethe.GoWithArgs(timer.scheduleNext, retVal, &added)
 	if err != nil {
 		return nil, err
 	}
 
-	timer.cond.Broadcast()
+	return retVal, nil
+}
 
-	if retChannel != nil {
-		retChannel <- job
+func (timer *timerData) scheduleNext(job *timerJob, nextRingTime *time.Time) error {
+	timer.mux.Lock()
+	defer timer.mux.Unlock()
+
+	nextJobNumber := timer.nextJob
+	timer.nextJob++
+
+	nextRing := &nextJob{
+		jobNumber: nextJobNumber,
 	}
 
-	return job, nil
+	job.next = nextRing
+
+	err := timer.heap.Add(nextRingTime, job)
+	if err != nil {
+		return err
+	}
+
+	timer.cond.Broadcast()
+
+	return nil
 }
 
 // Cancel cancels the timer

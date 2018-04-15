@@ -277,7 +277,7 @@ func (goth *goetheData) startTimer() {
 
 	// Add system job
 	values := make([]reflect.Value, 0)
-	goth.timer.addJob(nil, 0, 24*time.Hour, nil,
+	goth.timer.addJob(0, 24*time.Hour, nil,
 		func() {
 		}, values, false)
 
@@ -306,7 +306,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 		return nil, err
 	}
 
-	return goth.timer.addJob(nil, initialDelay, period, errorQueue, method, arguments, true)
+	return goth.timer.addJob(initialDelay, period, errorQueue, method, arguments, true)
 }
 
 // ScheduleWithFixedDelay schedules the given method with the given args
@@ -328,7 +328,7 @@ func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay
 		return nil, err
 	}
 
-	return goth.timer.addJob(nil, initialDelay, delay, errorQueue, method, arguments, false)
+	return goth.timer.addJob(initialDelay, delay, errorQueue, method, arguments, false)
 }
 
 func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
