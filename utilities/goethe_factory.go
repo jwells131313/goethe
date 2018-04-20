@@ -52,14 +52,28 @@ import (
 	"time"
 )
 
-type goetheData struct {
-	tidMux       sync.Mutex
-	lastTid      int64
-	poolMap      map[string]goethe.Pool
-	threadLocals map[string]*threadLocalOperators
+type poolData struct {
+	poolMux sync.Mutex
+	poolMap map[string]goethe.Pool
+}
 
+type timersData struct {
 	timerMux sync.Mutex
 	timer    timerImpl
+}
+
+type threadLocalsData struct {
+	localsMux    sync.Mutex
+	threadLocals map[string]*threadLocalOperators
+}
+
+type goetheData struct {
+	tidMux  sync.Mutex
+	lastTid int64
+
+	pools  *poolData
+	timers *timersData
+	locals *threadLocalsData
 }
 
 type threadLocalOperators struct {
@@ -79,10 +93,21 @@ const (
 )
 
 func newGoethe() *goetheData {
-	retVal := &goetheData{
-		lastTid:      9,
-		poolMap:      make(map[string]goethe.Pool),
+	pools := &poolData{
+		poolMap: make(map[string]goethe.Pool),
+	}
+
+	timers := &timersData{}
+
+	locals := &threadLocalsData{
 		threadLocals: make(map[string]*threadLocalOperators),
+	}
+
+	retVal := &goetheData{
+		lastTid: 9,
+		pools:   pools,
+		timers:  timers,
+		locals:  locals,
 	}
 
 	return retVal
@@ -170,10 +195,10 @@ func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
 // NewPool is the native implementation of NewPool
 func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 	functionQueue goethe.FunctionQueue, errorQueue goethe.ErrorQueue) (goethe.Pool, error) {
-	goth.tidMux.Lock()
-	defer goth.tidMux.Unlock()
+	goth.pools.poolMux.Lock()
+	defer goth.pools.poolMux.Unlock()
 
-	foundPool, found := goth.poolMap[name]
+	foundPool, found := goth.pools.poolMap[name]
 	if found {
 		return foundPool, goethe.ErrPoolAlreadyExists
 	}
@@ -184,7 +209,7 @@ func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32,
 		return nil, err
 	}
 
-	goth.poolMap[name] = retVal
+	goth.pools.poolMap[name] = retVal
 
 	return retVal, nil
 }
@@ -192,10 +217,10 @@ func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32,
 // GetPool returns a non-closed pool with the given name.  If not found second
 // value returned will be false
 func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
-	goth.tidMux.Lock()
-	goth.tidMux.Unlock()
+	goth.pools.poolMux.Lock()
+	goth.pools.poolMux.Unlock()
 
-	retVal, found := goth.poolMap[name]
+	retVal, found := goth.pools.poolMap[name]
 
 	return retVal, found
 }
@@ -205,10 +230,10 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 // thread, including non-goethe threads
 func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goethe.ThreadLocal) error,
 	destroyer func(goethe.ThreadLocal) error) error {
-	goth.tidMux.Lock()
-	goth.tidMux.Unlock()
+	goth.locals.localsMux.Lock()
+	goth.locals.localsMux.Unlock()
 
-	_, found := goth.threadLocals[name]
+	_, found := goth.locals.threadLocals[name]
 	if found {
 		return fmt.Errorf("There is already an established thread local for %s", name)
 	}
@@ -220,7 +245,7 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goeth
 		actuals:     make(map[int64]goethe.ThreadLocal),
 	}
 
-	goth.threadLocals[name] = operation
+	goth.locals.threadLocals[name] = operation
 
 	return nil
 }
@@ -243,9 +268,9 @@ func (goth *goetheData) GetThreadLocal(name string) (goethe.ThreadLocal, error) 
 			actuals: make(map[int64]goethe.ThreadLocal),
 		}
 
-		goth.tidMux.Lock()
-		goth.threadLocals[name] = operators
-		goth.tidMux.Unlock()
+		goth.locals.localsMux.Lock()
+		goth.locals.threadLocals[name] = operators
+		goth.locals.localsMux.Unlock()
 	}
 
 	operators.lock.WriteLock()
@@ -266,22 +291,22 @@ func (goth *goetheData) GetThreadLocal(name string) (goethe.ThreadLocal, error) 
 }
 
 func (goth *goetheData) startTimer() {
-	goth.timerMux.Lock()
-	defer goth.timerMux.Unlock()
+	goth.timers.timerMux.Lock()
+	defer goth.timers.timerMux.Unlock()
 
-	if goth.timer != nil {
+	if goth.timers.timer != nil {
 		return
 	}
 
-	goth.timer = newTimer()
+	goth.timers.timer = newTimer()
 
 	// Add system job
 	values := make([]reflect.Value, 0)
-	goth.timer.addJob(0, 24*time.Hour, nil,
+	goth.timers.timer.addJob(0, 24*time.Hour, nil,
 		func() {
 		}, values, false)
 
-	goth.Go(goth.timer.run)
+	goth.Go(goth.timers.timer.run)
 
 	goth.EstablishThreadLocal(goethe.TimerThreadLocal, nil, nil)
 }
@@ -306,7 +331,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 		return nil, err
 	}
 
-	return goth.timer.addJob(initialDelay, period, errorQueue, method, arguments, true)
+	return goth.timers.timer.addJob(initialDelay, period, errorQueue, method, arguments, true)
 }
 
 // ScheduleWithFixedDelay schedules the given method with the given args
@@ -328,14 +353,14 @@ func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay
 		return nil, err
 	}
 
-	return goth.timer.addJob(initialDelay, delay, errorQueue, method, arguments, false)
+	return goth.timers.timer.addJob(initialDelay, delay, errorQueue, method, arguments, false)
 }
 
 func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
-	goth.tidMux.Lock()
-	goth.tidMux.Unlock()
+	goth.locals.localsMux.Lock()
+	goth.locals.localsMux.Unlock()
 
-	retVal, found := goth.threadLocals[name]
+	retVal, found := goth.locals.threadLocals[name]
 
 	return retVal, found
 }
@@ -357,19 +382,19 @@ func removeThreadLocal(operators *threadLocalOperators, tid int64) {
 }
 
 func (goth *goetheData) removeAllActuals(tid int64) {
-	goth.tidMux.Lock()
-	goth.tidMux.Unlock()
+	goth.locals.localsMux.Lock()
+	goth.locals.localsMux.Unlock()
 
-	for _, operators := range goth.threadLocals {
+	for _, operators := range goth.locals.threadLocals {
 		removeThreadLocal(operators, tid)
 	}
 }
 
 func (goth *goetheData) removePool(name string) {
-	goth.tidMux.Lock()
-	goth.tidMux.Unlock()
+	goth.pools.poolMux.Lock()
+	goth.pools.poolMux.Unlock()
 
-	delete(goth.poolMap, name)
+	delete(goth.pools.poolMap, name)
 }
 
 // convertToNibbles returns the nibbles of the string

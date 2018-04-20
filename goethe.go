@@ -270,13 +270,10 @@ type FunctionQueue interface {
 	// IsEmpty Returns true if this queue is currently empty
 	IsEmpty() bool
 
-	// WaitForEnqueue will wait for a message to be enqueued
-	// after this method is called or a dequeue has failed with
-	// an empty queue.  Will wait for the given
-	// duration.  This *only* returns when NEW messages have
-	// been enqueued, and hence has a possible race.  Use
-	// with care
-	WaitForStateChange(time.Duration)
+	// SetStateChangeCallback sets a function to be
+	// called whenever an enqueue or dequeue changes
+	// the size of queue
+	SetStateChangeCallback(func(FunctionQueue))
 }
 
 // ErrorInformation represents data about an error that occurred

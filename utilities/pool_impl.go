@@ -60,6 +60,10 @@ type threadPool struct {
 
 	currentThreads int32
 	threadState    map[int64]int
+	closeChannel   chan bool
+	decayChannel   chan bool
+	changeChannel  chan int
+	decayTimer     goethe.Timer
 }
 
 // states for each thread in the pool
@@ -100,9 +104,28 @@ func newThreadPool(par *goetheData, name string, min, max int32, idle time.Durat
 		errorQueue:      eq,
 		threadState:     make(map[int64]int),
 		parent:          par,
+		closeChannel:    make(chan bool),
+		decayChannel:    make(chan bool),
+		changeChannel:   make(chan int),
 	}
 
+	timer, err := par.ScheduleWithFixedDelay(0, 1*time.Minute,
+		retVal.errorQueue, retVal.ringBell)
+	if err != nil {
+		return nil, err
+	}
+
+	retVal.decayTimer = timer
+
 	return retVal, nil
+}
+
+func (threadPool *threadPool) ringBell() {
+	defer func() {
+		recover()
+	}()
+
+	threadPool.decayChannel <- true
 }
 
 func (threadPool *threadPool) IsStarted() bool {
@@ -133,10 +156,26 @@ func (threadPool *threadPool) Start() error {
 	}
 
 	goether.GoWithArgs(threadPool.monitor)
+	threadPool.functionalQueue.SetStateChangeCallback(threadPool.functionalQueueChanged)
 
 	threadPool.started = true
 
 	return nil
+}
+
+func (threadPool *threadPool) functionalQueueChanged(fq goethe.FunctionQueue) {
+	defer func() {
+		recover()
+	}()
+
+	if threadPool.IsClosed() {
+		return
+	}
+	if !threadPool.IsStarted() {
+		return
+	}
+
+	threadPool.changeChannel <- fq.GetSize()
 }
 
 func (threadPool *threadPool) GetName() string {
@@ -187,7 +226,15 @@ func (threadPool *threadPool) Close() {
 
 	threadPool.closed = true
 
+	threadPool.functionalQueue.SetStateChangeCallback(nil)
+
 	threadPool.parent.removePool(threadPool.name)
+
+	threadPool.decayTimer.Cancel()
+
+	close(threadPool.closeChannel)
+	close(threadPool.decayChannel)
+	close(threadPool.changeChannel)
 }
 
 func (threadPool *threadPool) monitor() {
@@ -198,7 +245,14 @@ func (threadPool *threadPool) monitor() {
 
 		threadPool.monitorOnce()
 
-		threadPool.functionalQueue.WaitForStateChange(1 * time.Minute)
+		select {
+		case <-threadPool.changeChannel:
+			break
+		case <-threadPool.closeChannel:
+			return
+		case <-threadPool.decayChannel:
+			break
+		}
 	}
 }
 

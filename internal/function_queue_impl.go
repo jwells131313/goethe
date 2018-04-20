@@ -47,8 +47,9 @@ import (
 )
 
 type functionErrorQueue struct {
-	mux  sync.Mutex
-	cond *sync.Cond
+	mux     sync.Mutex
+	cond    *sync.Cond
+	changer func(queue goethe.FunctionQueue)
 
 	capacity uint32
 	queue    []*goethe.FunctionDescriptor
@@ -90,6 +91,9 @@ func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{})
 	fq.queue = append(fq.queue, descriptor)
 
 	fq.cond.Broadcast()
+	if fq.changer != nil {
+		go fq.changer(fq)
+	}
 
 	return nil
 }
@@ -120,6 +124,10 @@ func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*goethe.FunctionD
 	retVal := fq.queue[0]
 	fq.queue = fq.queue[1:]
 
+	if fq.changer != nil {
+		go fq.changer(fq)
+	}
+
 	return retVal, nil
 }
 
@@ -138,13 +146,9 @@ func (fq *functionErrorQueue) IsEmpty() bool {
 	return fq.GetSize() <= 0
 }
 
-func (fq *functionErrorQueue) WaitForStateChange(duration time.Duration) {
+func (fq *functionErrorQueue) SetStateChangeCallback(ch func(goethe.FunctionQueue)) {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 
-	time.AfterFunc(duration, func() {
-		fq.cond.Broadcast()
-	})
-
-	fq.cond.Wait()
+	fq.changer = ch
 }
