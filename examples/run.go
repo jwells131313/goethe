@@ -55,5 +55,11 @@ func main() {
 	fmt.Println("Running a thread pool...")
 	useAPool()
 
+	fmt.Println("Run some per-thread loggers...")
+	err := runSomeLoggingThreads()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
 	fmt.Println("have a nice day")
 }

@@ -63,8 +63,8 @@ type goetheData struct {
 }
 
 type threadLocalOperators struct {
-	initializer func(goethe.ThreadLocal)
-	destroyer   func(goethe.ThreadLocal)
+	initializer func(goethe.ThreadLocal) error
+	destroyer   func(goethe.ThreadLocal) error
 	lock        goethe.Lock
 	actuals     map[int64]goethe.ThreadLocal
 }
@@ -203,8 +203,8 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 // EstablishThreadLocal tells the system of the named thread local storage
 // initialize method and destroy method.  This method can be called on any
 // thread, including non-goethe threads
-func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goethe.ThreadLocal),
-	destroyer func(goethe.ThreadLocal)) error {
+func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goethe.ThreadLocal) error,
+	destroyer func(goethe.ThreadLocal) error) error {
 	goth.tidMux.Lock()
 	goth.tidMux.Unlock()
 

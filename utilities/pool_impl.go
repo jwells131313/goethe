@@ -268,6 +268,10 @@ func threadRunner(threadPool *threadPool) {
 				threadPool.mux.Unlock()
 			} else {
 				// Todo: log this error or something?
+				threadPool.mux.Lock()
+				threadPool.currentThreads--
+				threadPool.mux.Unlock()
+
 				return
 			}
 		} else {

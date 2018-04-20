@@ -134,8 +134,9 @@ type Goethe interface {
 	// EstablishThreadLocal tells the system of the named thread local storage
 	// initialize method and destroy method.  This method can be called on any
 	// thread, including non-goethe threads.  Both the initializer and
-	// destroyer methods may be nil
-	EstablishThreadLocal(name string, initializer func(ThreadLocal), destroyer func(ThreadLocal)) error
+	// destroyer methods may be nil.  Any errors thrown by these function
+	// will be put on the error queue
+	EstablishThreadLocal(name string, initializer func(ThreadLocal) error, destroyer func(ThreadLocal) error) error
 
 	// Get thread local returns the instance of the storage associated with
 	// the current goethe thread.  May only be called on goethe threads and
