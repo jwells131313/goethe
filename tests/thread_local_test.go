@@ -109,11 +109,13 @@ func getCurrentCount() int {
 	return retVal
 }
 
-func initializer(tl goethe.ThreadLocal) {
+func initializer(tl goethe.ThreadLocal) error {
 	retVal := &Local{}
 	tl.Set(retVal)
 
 	locals = append(locals, retVal)
+
+	return nil
 }
 
 func adder() error {
