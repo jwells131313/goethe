@@ -260,32 +260,42 @@ func (threadPool *threadPool) monitorOnce() {
 	threadPool.mux.Lock()
 	defer threadPool.mux.Unlock()
 
-	if threadPool.functionalQueue.IsEmpty() {
-		// nothing to do, individual threads will die at their own rate
-		return
-	}
-
 	if threadPool.currentThreads >= threadPool.maxThreads {
 		// already at limit
 		return
 	}
 
-	// Are all threads busy?
-	allBusy := true
+	queueSize := threadPool.functionalQueue.GetSize()
+	if queueSize <= 0 {
+		// nothing to do, individual threads will die at their own rate
+		return
+	}
+
+	numWaiting := 0
 	for _, state := range threadPool.threadState {
 		if state == WAITING {
-			allBusy = false
-			break
+			numWaiting++
 		}
 	}
 
-	if allBusy {
+	if numWaiting >= queueSize {
+		// We already have all we need
+		return
+	}
+
+	// Figure out the number of threads we need to start
+	needed := queueSize - numWaiting
+	maxToAdd := int(threadPool.maxThreads - threadPool.currentThreads)
+
+	numberToAdd := maxToAdd
+	if needed < maxToAdd {
+		numberToAdd = needed
+	}
+
+	for lcv := 0; lcv < numberToAdd; lcv++ {
 		// We have to grow!
 		goether := GetGoethe()
 
-		// But only do one at a time so as not to
-		// get too crazy with uping and downing
-		// threads
 		goether.GoWithArgs(threadRunner, threadPool)
 		threadPool.currentThreads++
 	}
