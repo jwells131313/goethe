@@ -38,7 +38,7 @@
  * holder.
  */
 
-package internal
+package utilities
 
 import "github.com/jwells131313/goethe"
 

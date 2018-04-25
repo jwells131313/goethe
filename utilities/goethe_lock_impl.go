@@ -38,7 +38,7 @@
  * holder.
  */
 
-package internal
+package utilities
 
 import (
 	"sync"

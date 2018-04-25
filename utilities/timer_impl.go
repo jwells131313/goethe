@@ -43,7 +43,6 @@ package utilities
 import (
 	"fmt"
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/internal"
 	"reflect"
 	"sync"
 	"time"
@@ -68,7 +67,7 @@ type timerImpl interface {
 type timerData struct {
 	mux           goethe.Lock
 	cond          *sync.Cond
-	heap          internal.HeapQueue
+	heap          HeapQueue
 	nextJobNumber int64
 	sleepy        sleeper
 	nextJob       uint64
@@ -97,7 +96,7 @@ func newTimer() timerImpl {
 
 	retVal := &timerData{
 		mux:    goethe.NewGoetheLock(),
-		heap:   internal.NewHeap(),
+		heap:   NewHeap(),
 		sleepy: newSleeper(),
 	}
 

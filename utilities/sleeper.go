@@ -42,7 +42,6 @@ package utilities
 
 import (
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/internal"
 	"sync"
 	"time"
 )
@@ -58,14 +57,14 @@ type sleeperNode struct {
 }
 
 type sleeperImpl struct {
-	heap internal.HeapQueue
+	heap HeapQueue
 	lock goethe.Lock
 	jobs map[uint64]uint64
 }
 
 func newSleeper() sleeper {
 	return &sleeperImpl{
-		heap: internal.NewHeap(),
+		heap: NewHeap(),
 		lock: GetGoethe().NewGoetheLock(),
 		jobs: make(map[uint64]uint64),
 	}

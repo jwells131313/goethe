@@ -44,7 +44,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/internal"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -178,18 +177,18 @@ func (goth *goetheData) GetThreadID() int64 {
 }
 
 func (goth *goetheData) NewGoetheLock() goethe.Lock {
-	return internal.NewReaderWriterLock(goth)
+	return NewReaderWriterLock(goth)
 }
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
 func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) goethe.FunctionQueue {
-	return internal.NewFunctionQueue(capacity)
+	return NewFunctionQueue(capacity)
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors
 // are returned when the ErrorQueue is at capacity the new errors are droppedmin
 func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
-	return internal.NewBoundedErrorQueue(capacity)
+	return NewBoundedErrorQueue(capacity)
 }
 
 // NewPool is the native implementation of NewPool
@@ -278,7 +277,7 @@ func (goth *goetheData) GetThreadLocal(name string) (goethe.ThreadLocal, error) 
 
 	actual, found := operators.actuals[tid]
 	if !found {
-		actual = internal.NewThreadLocal(name, goth, tid)
+		actual = NewThreadLocal(name, goth, tid)
 
 		if operators.initializer != nil {
 			operators.initializer(actual)
