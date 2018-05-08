@@ -320,6 +320,10 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
 	goth.startTimer()
 
+	if period < 1 {
+		return nil, fmt.Errorf("Invalid rate of %d given to ScheduledAtFixedRate", period)
+	}
+
 	argArray := make([]interface{}, len(args))
 	for index, arg := range args {
 		argArray[index] = arg
@@ -341,6 +345,10 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
 	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
 	goth.startTimer()
+
+	if delay < 0 {
+		return nil, fmt.Errorf("Invalid delay of %d given to ScheduleWithFixedDelay", delay)
+	}
 
 	argArray := make([]interface{}, len(args))
 	for index, arg := range args {
