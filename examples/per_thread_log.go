@@ -47,6 +47,8 @@ import (
 	"github.com/jwells131313/goethe/utilities"
 	"math/rand"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -86,15 +88,21 @@ func getWriter() (*bufio.Writer, error) {
 	return retVal.writer, nil
 }
 
-func sleeper() error {
+func sleeper(count *int32, cond sync.Cond) error {
+	fmt.Println("JRW(10) count=", *count)
 	writer, err := getWriter()
 	if err != nil {
 		return err
 	}
 
+	val := atomic.AddInt32(count, 1)
+	if val >= 100 {
+		cond.Broadcast()
+	}
+	fmt.Println("JRW(10) val=", val)
+
 	sleepTime := nextRandom()
 	writer.WriteString(fmt.Sprintf("Will sleep for %ds\n", sleepTime))
-	fmt.Printf("JRW so... uh, which thread? %d\n", utilities.GetGoethe().GetThreadID())
 
 	time.Sleep(sleepTime * time.Second)
 
@@ -156,30 +164,60 @@ func destroyLogger(tl goethe.ThreadLocal) error {
 }
 
 func runSomeLoggingThreads() error {
+	ch := make(chan bool)
+
+	ethe := utilities.GetGoethe()
+
+	fmt.Println("JRW(30) running runner")
+	ethe.GoWithArgs(runner, ch)
+	fmt.Println("JRW(40) after running runner")
+
+	result := <-ch
+	if !result {
+		return fmt.Errorf("Failed in runner")
+	}
+
+	return nil
+}
+
+func runner(ch chan bool) error {
+	fmt.Println("JRW(50) runner")
 	ethe := utilities.GetGoethe()
 
 	err := ethe.EstablishThreadLocal(LocalLogger, initializeLogger, destroyLogger)
 	if err != nil {
+		ch <- false
 		return err
 	}
 
+	lock := ethe.NewGoetheLock()
+	cond := sync.NewCond(lock)
 	queue := ethe.NewBoundedFunctionQueue(1000)
+
+	var count int32
 
 	pool, err := ethe.NewPool("ThreadLocalExamplePool", 2, 10, 1*time.Second, queue, nil)
 	if err != nil {
+		ch <- false
 		return err
 	}
 
 	pool.Start()
 
 	for lcv := 0; lcv < 100; lcv++ {
-		err = queue.Enqueue(sleeper)
+		err = queue.Enqueue(sleeper, &count, cond)
 		if err != nil {
 			return err
 		}
 	}
 
-	time.Sleep(1 * time.Minute)
+	fmt.Println("JRW(60) before wait runner")
+
+	lock.WriteLock()
+	cond.Wait()
+	lock.WriteUnlock()
+
+	ch <- true
 
 	return nil
 }
