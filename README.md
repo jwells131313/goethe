@@ -36,7 +36,7 @@
 [//]: # " only if the new code is made subject to such option by the copyright "
 [//]: # " holder. "
 
-# goethe [![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe) [![wercker status](https://app.wercker.com/status/269d55f515cfd042ec505993f5e3fe88/s/master "wercker status")](https://app.wercker.com/project/byKey/269d55f515cfd042ec505993f5e3fe88)
+# goethe [![GoDoc](https://godoc.org/github.com/jwells131313/goethe?status.svg)](https://godoc.org/github.com/jwells131313/goethe) [![wercker status](https://app.wercker.com/status/269d55f515cfd042ec505993f5e3fe88/s/master "wercker status")](https://app.wercker.com/project/byKey/269d55f515cfd042ec505993f5e3fe88) [![Go Report Card](https://goreportcard.com/badge/github.com/jwells131313/goethe)](https://goreportcard.com/report/github.com/jwells131313/goethe)
 
 Threading utilities for GO
 
