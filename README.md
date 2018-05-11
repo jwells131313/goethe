@@ -326,7 +326,7 @@ func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 ```
 
 One thing to notice is that use of the recursive writeLock is made safely and correctly!  No
-critical seconds were harmed in the making of this example.
+critical sections were harmed in the making of this example!
 
 ### Thread Local Storage
 
