@@ -182,8 +182,6 @@ func (heap *heapQueueData) Get() (*time.Time, interface{}, bool) {
 
 		currentIndex = swapIndex
 	}
-
-	return retVal, retPayload, true
 }
 
 func (heap *heapQueueData) Peek() (*time.Time, interface{}, bool) {

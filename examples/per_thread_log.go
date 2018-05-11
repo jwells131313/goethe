@@ -53,6 +53,7 @@ import (
 )
 
 const (
+	// LocalLogger name of local log
 	LocalLogger = "LogLocal"
 )
 
@@ -88,7 +89,7 @@ func getWriter() (*bufio.Writer, error) {
 	return retVal.writer, nil
 }
 
-func sleeper(count *int32, cond sync.Cond) error {
+func sleeper(count *int32, cond *sync.Cond) error {
 	fmt.Println("JRW(10) count=", *count)
 	writer, err := getWriter()
 	if err != nil {

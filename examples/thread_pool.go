@@ -105,8 +105,6 @@ func useAPool() error {
 
 			time.Sleep(time.Second)
 		}
-
-		return
 	})
 
 	result := <-finished

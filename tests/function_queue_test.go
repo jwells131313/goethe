@@ -129,26 +129,19 @@ func TestFQCapacityWorks(t *testing.T) {
 
 	funcQueue := goethe.NewBoundedFunctionQueue(5)
 
-	var a0, a1, a2, a3, a4 int
-
 	f0 := func() error {
-		a0 = 100
 		return nil
 	}
 	f1 := func() error {
-		a1 = 101
 		return nil
 	}
 	f2 := func() error {
-		a2 = 102
 		return nil
 	}
 	f3 := func() error {
-		a3 = 103
 		return nil
 	}
 	f4 := func() error {
-		a4 = 104
 		return nil
 	}
 

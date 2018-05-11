@@ -48,7 +48,15 @@ build:
   steps:
 
     # golint step!
-    - wercker/golint
+    - golint:
+      exclude: "^vendor"
+
+    # vet the code
+    - script:
+      name: go vet
+      code: |
+        go vet ./...
+
 
     # Build the project
     - script:
