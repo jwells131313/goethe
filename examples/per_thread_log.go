@@ -53,8 +53,10 @@ import (
 )
 
 const (
-	// LocalLogger name of local log
+	// LocalLogger name of the thread local variable holding the logger
 	LocalLogger = "LogLocal"
+
+	numIterations = 20
 )
 
 type perThreadLogger struct {
@@ -90,17 +92,15 @@ func getWriter() (*bufio.Writer, error) {
 }
 
 func sleeper(count *int32, cond *sync.Cond) error {
-	fmt.Println("JRW(10) count=", *count)
 	writer, err := getWriter()
 	if err != nil {
 		return err
 	}
 
 	val := atomic.AddInt32(count, 1)
-	if val >= 100 {
+	if val >= numIterations {
 		cond.Broadcast()
 	}
-	fmt.Println("JRW(10) val=", val)
 
 	sleepTime := nextRandom()
 	writer.WriteString(fmt.Sprintf("Will sleep for %ds\n", sleepTime))
@@ -169,9 +169,7 @@ func runSomeLoggingThreads() error {
 
 	ethe := utilities.GetGoethe()
 
-	fmt.Println("JRW(30) running runner")
 	ethe.GoWithArgs(runner, ch)
-	fmt.Println("JRW(40) after running runner")
 
 	result := <-ch
 	if !result {
@@ -182,7 +180,6 @@ func runSomeLoggingThreads() error {
 }
 
 func runner(ch chan bool) error {
-	fmt.Println("JRW(50) runner")
 	ethe := utilities.GetGoethe()
 
 	err := ethe.EstablishThreadLocal(LocalLogger, initializeLogger, destroyLogger)
@@ -205,14 +202,12 @@ func runner(ch chan bool) error {
 
 	pool.Start()
 
-	for lcv := 0; lcv < 100; lcv++ {
+	for lcv := 0; lcv < numIterations; lcv++ {
 		err = queue.Enqueue(sleeper, &count, cond)
 		if err != nil {
 			return err
 		}
 	}
-
-	fmt.Println("JRW(60) before wait runner")
 
 	lock.WriteLock()
 	cond.Wait()
