@@ -113,6 +113,11 @@ func newGoethe() *goetheData {
 
 // GetGoethe returns the systems goethe global
 func GetGoethe() Goethe {
+	return GG()
+}
+
+// GG returns the system goethe global implementation, and also means "Good Game"
+func GG() Goethe {
 	return globalGoethe
 }
 
