@@ -38,11 +38,10 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe"
 	"reflect"
 	"sync"
 	"time"
@@ -58,14 +57,14 @@ type timerImpl interface {
 	addJob(
 		initialDelay time.Duration,
 		period time.Duration,
-		errorQueue goethe.ErrorQueue,
+		errorQueue ErrorQueue,
 		method interface{},
 		arguments []reflect.Value,
-		fixed bool) (goethe.Timer, error)
+		fixed bool) (Timer, error)
 }
 
 type timerData struct {
-	mux           goethe.Lock
+	mux           Lock
 	cond          *sync.Cond
 	heap          HeapQueue
 	nextJobNumber int64
@@ -85,7 +84,7 @@ type timerJob struct {
 	fixed       bool
 	method      interface{}
 	args        []reflect.Value
-	errors      goethe.ErrorQueue
+	errors      ErrorQueue
 
 	next *nextJob
 }
@@ -96,7 +95,7 @@ func newTimer() timerImpl {
 
 	retVal := &timerData{
 		mux:    goethe.NewGoetheLock(),
-		heap:   NewHeap(),
+		heap:   newHeap(),
 		sleepy: newSleeper(),
 	}
 
@@ -197,8 +196,8 @@ func (timer *timerData) scheduleNextWakeUp() {
 	timer.sleepy.sleep(until, timer.cond, pNode.next.jobNumber)
 }
 
-func (timer *timerData) invoke(ethe goethe.Goethe, job *timerJob) {
-	tl, err := ethe.GetThreadLocal(goethe.TimerThreadLocal)
+func (timer *timerData) invoke(ethe Goethe, job *timerJob) {
+	tl, err := ethe.GetThreadLocal(TimerThreadLocal)
 	if err != nil {
 		if job.errors != nil {
 			ei := newErrorinformation(ethe.GetThreadID(), fmt.Errorf("could not find TimerThreadLocal"))
@@ -225,10 +224,10 @@ func (timer *timerData) invoke(ethe goethe.Goethe, job *timerJob) {
 func (timer *timerData) addJob(
 	initialDelay time.Duration,
 	period time.Duration,
-	errorQueue goethe.ErrorQueue,
+	errorQueue ErrorQueue,
 	method interface{},
 	arguments []reflect.Value,
-	fixed bool) (goethe.Timer, error) {
+	fixed bool) (Timer, error) {
 	ethe := GetGoethe()
 
 	now := time.Now()
@@ -291,6 +290,6 @@ func (job *timerJob) IsRunning() bool {
 }
 
 // GetErrorQueue returns the error queue associated with this timer (may be nil)
-func (job *timerJob) GetErrorQueue() goethe.ErrorQueue {
+func (job *timerJob) GetErrorQueue() ErrorQueue {
 	return job.errors
 }

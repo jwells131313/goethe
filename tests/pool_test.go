@@ -41,18 +41,17 @@
 package tests
 
 import (
-	ethe "github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
 	"testing"
 	"time"
 )
 
 func TestOneFixedPoolFunctionality(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
-	pool, err := goethe.NewPool("OneOnlyPool", 1, 1, 1*time.Minute, funcQueue, nil)
+	pool, err := ethe.NewPool("OneOnlyPool", 1, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
 		t.Errorf("could not create pool %v", err)
 		return
@@ -120,11 +119,11 @@ func TestOneFixedPoolFunctionality(t *testing.T) {
 }
 
 func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
-	pool, err := goethe.NewPool("ZeroOnePool", 0, 1, 1*time.Minute, funcQueue, nil)
+	pool, err := ethe.NewPool("ZeroOnePool", 0, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
 		t.Errorf("could not create pool %v", err)
 		return
@@ -187,11 +186,11 @@ func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
 }
 
 func TestGetMapFunctionality(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
-	poolA, found := goethe.GetPool("Pool A")
+	poolA, found := ethe.GetPool("Pool A")
 	if found {
 		t.Error("Should not have found pool not yet created")
 		return
@@ -201,7 +200,7 @@ func TestGetMapFunctionality(t *testing.T) {
 		return
 	}
 
-	poolA, err := goethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
+	poolA, err := ethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
 		t.Errorf("should have been able to create pool")
 		return
@@ -212,12 +211,12 @@ func TestGetMapFunctionality(t *testing.T) {
 	}
 
 	// Run it again
-	poolA1, err := goethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
+	poolA1, err := ethe.NewPool("Pool A", 1, 1, 1*time.Minute, funcQueue, nil)
 	if err == nil {
 		t.Errorf("should have gotten exception from existing pool")
 		return
 	}
-	if err != ethe.ErrPoolAlreadyExists {
+	if err != goethe.ErrPoolAlreadyExists {
 		t.Errorf("got unexpected error %v", err)
 		return
 	}
@@ -232,7 +231,7 @@ func TestGetMapFunctionality(t *testing.T) {
 		return
 	}
 
-	poolA, found = goethe.GetPool("Pool A")
+	poolA, found = ethe.GetPool("Pool A")
 	if found {
 		t.Error("Should not have found pool not yet created")
 		return
@@ -244,7 +243,7 @@ func TestGetMapFunctionality(t *testing.T) {
 }
 
 func getTID(ret chan int64) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	ret <- goethe.GetThreadID()
+	ret <- ethe.GetThreadID()
 }

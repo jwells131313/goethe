@@ -38,11 +38,10 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe"
 	"reflect"
 	"sync"
 	"time"
@@ -54,8 +53,8 @@ type threadPool struct {
 	started, closed        bool
 	minThreads, maxThreads int32
 	idleDecay              time.Duration
-	functionalQueue        goethe.FunctionQueue
-	errorQueue             goethe.ErrorQueue
+	functionalQueue        FunctionQueue
+	errorQueue             ErrorQueue
 	parent                 *goetheData
 
 	currentThreads int32
@@ -63,7 +62,7 @@ type threadPool struct {
 	closeChannel   chan bool
 	decayChannel   chan bool
 	changeChannel  chan int
-	decayTimer     goethe.Timer
+	decayTimer     Timer
 }
 
 // states for each thread in the pool
@@ -79,9 +78,8 @@ var (
 	errorInterface = reflect.TypeOf((*error)(nil)).Elem()
 )
 
-// NewThreadPool creates a thread pool
 func newThreadPool(par *goetheData, name string, min, max int32, idle time.Duration,
-	fq goethe.FunctionQueue, eq goethe.ErrorQueue) (goethe.Pool, error) {
+	fq FunctionQueue, eq ErrorQueue) (Pool, error) {
 	if min < 0 {
 		return nil, fmt.Errorf("minimum thread count less than zero %d", min)
 	}
@@ -140,7 +138,7 @@ func (threadPool *threadPool) Start() error {
 	defer threadPool.mux.Unlock()
 
 	if threadPool.closed {
-		return goethe.ErrPoolClosed
+		return ErrPoolClosed
 	}
 
 	if threadPool.started {
@@ -163,7 +161,7 @@ func (threadPool *threadPool) Start() error {
 	return nil
 }
 
-func (threadPool *threadPool) functionalQueueChanged(fq goethe.FunctionQueue) {
+func (threadPool *threadPool) functionalQueueChanged(fq FunctionQueue) {
 	defer func() {
 		recover()
 	}()
@@ -201,11 +199,11 @@ func (threadPool *threadPool) GetCurrentThreadCount() int32 {
 	return threadPool.currentThreads
 }
 
-func (threadPool *threadPool) GetFunctionQueue() goethe.FunctionQueue {
+func (threadPool *threadPool) GetFunctionQueue() FunctionQueue {
 	return threadPool.functionalQueue
 }
 
-func (threadPool *threadPool) GetErrorQueue() goethe.ErrorQueue {
+func (threadPool *threadPool) GetErrorQueue() ErrorQueue {
 	return threadPool.errorQueue
 }
 
@@ -320,7 +318,7 @@ func threadRunner(threadPool *threadPool) {
 
 		descriptor, err := threadPool.functionalQueue.Dequeue(threadPool.idleDecay)
 		if err != nil {
-			if err == goethe.ErrEmptyQueue {
+			if err == ErrEmptyQueue {
 				threadPool.mux.Lock()
 				if threadPool.currentThreads > threadPool.minThreads {
 					// Reduce size of thread pool, but not below minimum

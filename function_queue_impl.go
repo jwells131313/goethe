@@ -38,10 +38,9 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
-	"github.com/jwells131313/goethe"
 	"sync"
 	"time"
 )
@@ -49,17 +48,17 @@ import (
 type functionErrorQueue struct {
 	mux     sync.Mutex
 	cond    *sync.Cond
-	changer func(queue goethe.FunctionQueue)
+	changer func(queue FunctionQueue)
 
 	capacity uint32
-	queue    []*goethe.FunctionDescriptor
+	queue    []*FunctionDescriptor
 }
 
 // NewFunctionQueue creates a new function queue with the given capacity
-func NewFunctionQueue(userCapacity uint32) goethe.FunctionQueue {
+func NewFunctionQueue(userCapacity uint32) FunctionQueue {
 	retVal := &functionErrorQueue{
 		capacity: userCapacity,
-		queue:    make([]*goethe.FunctionDescriptor, 0),
+		queue:    make([]*FunctionDescriptor, 0),
 	}
 
 	retVal.cond = sync.NewCond(&retVal.mux)
@@ -76,10 +75,10 @@ func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{})
 	defer fq.mux.Unlock()
 
 	if uint32(len(fq.queue)) >= fq.capacity {
-		return goethe.ErrAtCapacity
+		return ErrAtCapacity
 	}
 
-	descriptor := &goethe.FunctionDescriptor{
+	descriptor := &FunctionDescriptor{
 		UserCall: userCall,
 		Args:     make([]interface{}, len(args)),
 	}
@@ -98,7 +97,7 @@ func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{})
 	return nil
 }
 
-func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*goethe.FunctionDescriptor, error) {
+func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*FunctionDescriptor, error) {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 
@@ -118,7 +117,7 @@ func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*goethe.FunctionD
 	}
 
 	if len(fq.queue) <= 0 {
-		return nil, goethe.ErrEmptyQueue
+		return nil, ErrEmptyQueue
 	}
 
 	retVal := fq.queue[0]
@@ -146,7 +145,7 @@ func (fq *functionErrorQueue) IsEmpty() bool {
 	return fq.GetSize() <= 0
 }
 
-func (fq *functionErrorQueue) SetStateChangeCallback(ch func(goethe.FunctionQueue)) {
+func (fq *functionErrorQueue) SetStateChangeCallback(ch func(FunctionQueue)) {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 

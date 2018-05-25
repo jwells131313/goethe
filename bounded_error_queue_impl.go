@@ -38,28 +38,65 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
-	"github.com/jwells131313/goethe"
+	"sync"
 )
 
-type errorInformation struct {
-	tid int64
-	err error
+type boundedErrorQueue struct {
+	mux sync.Mutex
+
+	capacity uint32
+	queue    []ErrorInformation
 }
 
-func newErrorinformation(id int64, err error) goethe.ErrorInformation {
-	return &errorInformation{
-		tid: id,
-		err: err,
+// NewBoundedErrorQueue creates a new error queue with the given capacity
+func NewBoundedErrorQueue(userCapacity uint32) ErrorQueue {
+	return &boundedErrorQueue{
+		capacity: userCapacity,
+		queue:    make([]ErrorInformation, 0),
 	}
 }
 
-func (ei *errorInformation) GetThreadID() int64 {
-	return ei.tid
+func (errorq *boundedErrorQueue) Enqueue(info ErrorInformation) error {
+	if info == nil {
+		return nil
+	}
+
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	if uint32(len(errorq.queue)) >= errorq.capacity {
+		return ErrAtCapacity
+	}
+
+	errorq.queue = append(errorq.queue, info)
+
+	return nil
 }
 
-func (ei *errorInformation) GetError() error {
-	return ei.err
+func (errorq *boundedErrorQueue) Dequeue() (ErrorInformation, bool) {
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	if len(errorq.queue) <= 0 {
+		return nil, false
+	}
+
+	retVal := errorq.queue[0]
+	errorq.queue = errorq.queue[1:]
+
+	return retVal, true
+}
+
+func (errorq *boundedErrorQueue) GetSize() int {
+	errorq.mux.Lock()
+	defer errorq.mux.Unlock()
+
+	return len(errorq.queue)
+}
+
+func (errorq *boundedErrorQueue) IsEmpty() bool {
+	return errorq.GetSize() == 0
 }

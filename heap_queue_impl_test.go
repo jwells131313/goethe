@@ -38,7 +38,7 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"testing"
@@ -52,7 +52,7 @@ func add(addMe int) *time.Time {
 }
 
 func TestHeapAddsAndRemoves(t *testing.T) {
-	heap := NewHeap()
+	heap := newHeap()
 
 	heap.Add(add(5), nil)
 	heap.Add(add(12), nil)
@@ -113,7 +113,7 @@ func TestHeapAddsAndRemoves(t *testing.T) {
 }
 
 func TestHeapAddsAndRemovesToGetOnlyLeftSwap(t *testing.T) {
-	heap := NewHeap()
+	heap := newHeap()
 
 	heap.Add(add(8), nil)
 	heap.Add(add(9), nil)

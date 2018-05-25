@@ -41,12 +41,10 @@
 package tests
 
 import (
+	"github.com/jwells131313/goethe"
 	"sync"
 	"sync/atomic"
 	"testing"
-
-	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 	"time"
 )
 
@@ -68,16 +66,16 @@ func TestTwoWritersMutex(t *testing.T) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
 
-	goethe := utilities.GetGoethe()
-	lock := goethe.NewGoetheLock()
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, 0, &actualDepth)
 	})
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, 0, &actualDepth)
@@ -129,11 +127,11 @@ func TestCountingWriterWaitsForOneReader(t *testing.T) {
 }
 
 func TestWriterCanBecomeReader(t *testing.T) {
-	goethe := utilities.GetGoethe()
-	lock := goethe.NewGoetheLock()
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
 	gotHere := false
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		lock.WriteLock()
 		defer lock.WriteUnlock()
 
@@ -156,12 +154,12 @@ func TestWriterCanBecomeReader(t *testing.T) {
 }
 
 func TestReaderCanNotBecomeWriter(t *testing.T) {
-	goether := utilities.GetGoethe()
-	lock := goether.NewGoetheLock()
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
 
 	var err error
 
-	goether.Go(func() {
+	ethe.Go(func() {
 		lock.ReadLock()
 		defer lock.ReadUnlock()
 
@@ -190,11 +188,11 @@ func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writ
 	waiter := newSimpleValue()
 	throttle := newThrottler()
 
-	goethe := utilities.GetGoethe()
-	lock := goethe.NewGoetheLock()
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
 
 	for lcv := 0; lcv < numReaders; lcv++ {
-		goethe.Go(func() {
+		ethe.Go(func() {
 			var actualDepth int
 
 			readValue(lock, waiter, throttle, recurseDepth, &actualDepth)
@@ -210,7 +208,7 @@ func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writ
 	}
 
 	// A reader is in there, now fire up the writer
-	goethe.Go(func() {
+	ethe.Go(func() {
 		var actualDepth int
 
 		incrementValueByOne(lock, waiter, throttle, writeRecurseDepth, &actualDepth)

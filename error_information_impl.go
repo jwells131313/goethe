@@ -38,109 +38,24 @@
  * holder.
  */
 
-package utilities
+package goethe
 
-import (
-	"github.com/jwells131313/goethe"
-	"sync"
-	"time"
-)
-
-type sleeper interface {
-	sleep(time.Duration, *sync.Cond, uint64)
+type errorInformation struct {
+	tid int64
+	err error
 }
 
-type sleeperNode struct {
-	ringTime time.Time
-	cond     *sync.Cond
-	id       uint64
-}
-
-type sleeperImpl struct {
-	heap HeapQueue
-	lock goethe.Lock
-	jobs map[uint64]uint64
-}
-
-func newSleeper() sleeper {
-	return &sleeperImpl{
-		heap: NewHeap(),
-		lock: GetGoethe().NewGoetheLock(),
-		jobs: make(map[uint64]uint64),
+func newErrorinformation(id int64, err error) ErrorInformation {
+	return &errorInformation{
+		tid: id,
+		err: err,
 	}
 }
 
-func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNumber uint64) {
-	sleepy.lock.Lock()
-	defer sleepy.lock.Unlock()
-
-	if duration < fudgeFactor {
-		cond.Broadcast()
-		return
-	}
-
-	_, has := sleepy.jobs[jobNumber]
-	if has {
-		return
-	}
-
-	sleepy.jobs[jobNumber] = jobNumber
-
-	ringsAt := time.Now().Add(duration)
-	newNode := &sleeperNode{
-		ringTime: ringsAt,
-		cond:     cond,
-		id:       jobNumber,
-	}
-
-	startNewThread := true
-
-	nextNode, _, found := sleepy.heap.Peek()
-	if found {
-		until := nextNode.Sub(ringsAt)
-
-		if until < 0 {
-			// start new thread
-			startNewThread = false
-		}
-	}
-
-	sleepy.heap.Add(&ringsAt, newNode)
-
-	if startNewThread {
-		GetGoethe().GoWithArgs(sleepy.waiter, duration)
-	}
+func (ei *errorInformation) GetThreadID() int64 {
+	return ei.tid
 }
 
-func (sleepy *sleeperImpl) waiter(duration time.Duration) {
-	time.Sleep(duration)
-
-	sleepy.lock.Lock()
-	defer sleepy.lock.Unlock()
-
-	fireTime, _, found := sleepy.heap.Peek()
-	if !found {
-		return
-	}
-
-	nextFire := time.Until(*fireTime)
-	for nextFire < fudgeFactor {
-		_, node, _ := sleepy.heap.Get()
-
-		noder, ok := node.(*sleeperNode)
-		if !ok {
-			panic("invalid type as heap payload")
-		}
-
-		delete(sleepy.jobs, noder.id)
-
-		noder.cond.Broadcast()
-
-		fireTime, _, found = sleepy.heap.Peek()
-		if !found {
-			return
-		}
-
-		nextFire = time.Until(*fireTime)
-	}
+func (ei *errorInformation) GetError() error {
+	return ei.err
 }

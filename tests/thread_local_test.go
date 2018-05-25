@@ -42,7 +42,6 @@ package tests
 
 import (
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 	"testing"
 	"time"
 )
@@ -58,18 +57,18 @@ const (
 )
 
 func TestThreadLocalStorage(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(100)
+	funcQueue := ethe.NewBoundedFunctionQueue(100)
 
-	pool, err := goethe.NewPool("OneOnlyPool", 2, 2, 1*time.Minute, funcQueue, nil)
+	pool, err := ethe.NewPool("OneOnlyPool", 2, 2, 1*time.Minute, funcQueue, nil)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
 	}
 	defer pool.Close()
 
-	err = goethe.EstablishThreadLocal(threadLocalName, initializer, nil)
+	err = ethe.EstablishThreadLocal(threadLocalName, initializer, nil)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -119,9 +118,9 @@ func initializer(tl goethe.ThreadLocal) error {
 }
 
 func adder() error {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	tl, err := goethe.GetThreadLocal(threadLocalName)
+	tl, err := ethe.GetThreadLocal(threadLocalName)
 	if err != nil {
 		return err
 	}

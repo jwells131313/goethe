@@ -42,17 +42,16 @@ package tests
 
 import (
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 	"testing"
 	"time"
 )
 
 func TestEverySecondForTenSeconds(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	var count int
 
-	timer, err := goethe.ScheduleWithFixedDelay(0, 1*time.Second, nil, hi, &count)
+	timer, err := ethe.ScheduleWithFixedDelay(0, 1*time.Second, nil, hi, &count)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -68,12 +67,12 @@ func TestEverySecondForTenSeconds(t *testing.T) {
 }
 
 func TestAtFixedRate(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	var count int
 
 	// add and sleep adds and sleeps for 2, but that should not affect the every second rate
-	timer, err := goethe.ScheduleAtFixedRate(0, 1*time.Second, nil, addAndSleep, &count)
+	timer, err := ethe.ScheduleAtFixedRate(0, 1*time.Second, nil, addAndSleep, &count)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -90,12 +89,12 @@ func TestAtFixedRate(t *testing.T) {
 }
 
 func TestRunOnceAndCancel(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	var count int
 
 	// add and sleep adds and sleeps for 2, but that should not affect the every second rate
-	timer, err := goethe.ScheduleWithFixedDelay(0, 1*time.Second, nil, runOnceAndCancel, &count)
+	timer, err := ethe.ScheduleWithFixedDelay(0, 1*time.Second, nil, runOnceAndCancel, &count)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -127,7 +126,7 @@ func addAndSleep(addToMe *int) {
 func runOnceAndCancel(addToMe *int) {
 	*addToMe = *addToMe + 1
 
-	tl, _ := utilities.GetGoethe().GetThreadLocal(goethe.TimerThreadLocal)
+	tl, _ := goethe.GetGoethe().GetThreadLocal(goethe.TimerThreadLocal)
 	if tl != nil {
 		iface, _ := tl.Get()
 

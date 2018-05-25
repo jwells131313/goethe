@@ -38,124 +38,46 @@
  * holder.
  */
 
-package utilities
+package goethe
 
-import (
-	"fmt"
-	"testing"
-)
-
-type bBB struct {
-	a, b, c int
+type threadLocal struct {
+	parent Goethe
+	tid    int64
+	name   string
+	data   interface{}
 }
 
-func TestGetValues(t *testing.T) {
-	input := make([]interface{}, 0)
-	input = append(input, "a")
-	input = append(input, "b")
-	input = append(input, "c")
-
-	v, err := GetValues(aAa, input)
-	if err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	if len(v) != 3 {
-		t.Errorf("unexpected number of return values %d", len(v))
+// NewThreadLocal returns a new thread local for a specific thread
+func NewThreadLocal(name string, parent Goethe, tid int64) ThreadLocal {
+	return &threadLocal{
+		parent: parent,
+		tid:    tid,
+		name:   name,
 	}
 }
 
-func TestInvokeWithNil(t *testing.T) {
-	bb0 := &bBB{
-		a: 1,
-		b: 2,
-		c: 3,
-	}
-	bb2 := &bBB{
-		a: 4,
-		b: 5,
-		c: 6,
-	}
-	bb3 := bBB{
-		a: 7,
-		b: 8,
-		c: 9,
+func (local *threadLocal) GetName() (string, error) {
+	if local.parent.GetThreadID() != local.tid {
+		return local.name, ErrNotCalledOnCorrectThread
 	}
 
-	input := make([]interface{}, 0)
-	input = append(input, bb0)
-	input = append(input, nil)
-	input = append(input, bb2)
-	input = append(input, bb3)
-
-	rChan := make(chan *bBB)
-
-	input = append(input, rChan)
-
-	v, err := GetValues(bbB, input)
-	if err != nil {
-		t.Errorf("%v", err)
-		return
-	}
-
-	go func() {
-		Invoke(bbB, v, nil)
-	}()
-
-	r0 := <-rChan
-	err = checkbBB(r0, 1, 2, 3)
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
-	r1 := <-rChan
-	if r1 != nil {
-		t.Errorf("expected nil second paramater got %v", r1)
-		return
-	}
-
-	r2 := <-rChan
-	err = checkbBB(r2, 4, 5, 6)
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
-	r3 := <-rChan
-	err = checkbBB(r3, 7, 8, 9)
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
+	return local.name, nil
 }
 
-func checkbBB(cMe *bBB, a, b, c int) error {
-	if cMe.a != a {
-		return fmt.Errorf("Invalid a, expected %d got %d", a, cMe.a)
+func (local *threadLocal) Set(d interface{}) error {
+	if local.parent.GetThreadID() != local.tid {
+		return ErrNotCalledOnCorrectThread
 	}
 
-	if cMe.b != b {
-		return fmt.Errorf("Invalid b, expected %d got %d", b, cMe.b)
-	}
-
-	if cMe.c != c {
-		return fmt.Errorf("Invalid b, expected %d got %d", c, cMe.c)
-	}
+	local.data = d
 
 	return nil
 }
 
-func aAa(a, b, c string) {
+func (local *threadLocal) Get() (interface{}, error) {
+	if local.parent.GetThreadID() != local.tid {
+		return nil, ErrNotCalledOnCorrectThread
+	}
 
-}
-
-func bbB(a, b, c *bBB, d bBB, rChan chan *bBB) {
-	rChan <- a
-	rChan <- b
-	rChan <- c
-	rChan <- &d
-	close(rChan)
+	return local.data, nil
 }

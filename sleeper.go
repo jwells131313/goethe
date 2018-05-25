@@ -38,66 +38,108 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
-	"github.com/jwells131313/goethe"
 	"sync"
+	"time"
 )
 
-type boundedErrorQueue struct {
-	mux sync.Mutex
-
-	capacity uint32
-	queue    []goethe.ErrorInformation
+type sleeper interface {
+	sleep(time.Duration, *sync.Cond, uint64)
 }
 
-// NewBoundedErrorQueue creates a new error queue with the given capacity
-func NewBoundedErrorQueue(userCapacity uint32) goethe.ErrorQueue {
-	return &boundedErrorQueue{
-		capacity: userCapacity,
-		queue:    make([]goethe.ErrorInformation, 0),
+type sleeperNode struct {
+	ringTime time.Time
+	cond     *sync.Cond
+	id       uint64
+}
+
+type sleeperImpl struct {
+	heap HeapQueue
+	lock Lock
+	jobs map[uint64]uint64
+}
+
+func newSleeper() sleeper {
+	return &sleeperImpl{
+		heap: newHeap(),
+		lock: GetGoethe().NewGoetheLock(),
+		jobs: make(map[uint64]uint64),
 	}
 }
 
-func (errorq *boundedErrorQueue) Enqueue(info goethe.ErrorInformation) error {
-	if info == nil {
-		return nil
+func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNumber uint64) {
+	sleepy.lock.Lock()
+	defer sleepy.lock.Unlock()
+
+	if duration < fudgeFactor {
+		cond.Broadcast()
+		return
 	}
 
-	errorq.mux.Lock()
-	defer errorq.mux.Unlock()
-
-	if uint32(len(errorq.queue)) >= errorq.capacity {
-		return goethe.ErrAtCapacity
+	_, has := sleepy.jobs[jobNumber]
+	if has {
+		return
 	}
 
-	errorq.queue = append(errorq.queue, info)
+	sleepy.jobs[jobNumber] = jobNumber
 
-	return nil
-}
-
-func (errorq *boundedErrorQueue) Dequeue() (goethe.ErrorInformation, bool) {
-	errorq.mux.Lock()
-	defer errorq.mux.Unlock()
-
-	if len(errorq.queue) <= 0 {
-		return nil, false
+	ringsAt := time.Now().Add(duration)
+	newNode := &sleeperNode{
+		ringTime: ringsAt,
+		cond:     cond,
+		id:       jobNumber,
 	}
 
-	retVal := errorq.queue[0]
-	errorq.queue = errorq.queue[1:]
+	startNewThread := true
 
-	return retVal, true
+	nextNode, _, found := sleepy.heap.Peek()
+	if found {
+		until := nextNode.Sub(ringsAt)
+
+		if until < 0 {
+			// start new thread
+			startNewThread = false
+		}
+	}
+
+	sleepy.heap.Add(&ringsAt, newNode)
+
+	if startNewThread {
+		GetGoethe().GoWithArgs(sleepy.waiter, duration)
+	}
 }
 
-func (errorq *boundedErrorQueue) GetSize() int {
-	errorq.mux.Lock()
-	defer errorq.mux.Unlock()
+func (sleepy *sleeperImpl) waiter(duration time.Duration) {
+	time.Sleep(duration)
 
-	return len(errorq.queue)
-}
+	sleepy.lock.Lock()
+	defer sleepy.lock.Unlock()
 
-func (errorq *boundedErrorQueue) IsEmpty() bool {
-	return errorq.GetSize() == 0
+	fireTime, _, found := sleepy.heap.Peek()
+	if !found {
+		return
+	}
+
+	nextFire := time.Until(*fireTime)
+	for nextFire < fudgeFactor {
+		_, node, _ := sleepy.heap.Get()
+
+		noder, ok := node.(*sleeperNode)
+		if !ok {
+			panic("invalid type as heap payload")
+		}
+
+		delete(sleepy.jobs, noder.id)
+
+		noder.cond.Broadcast()
+
+		fireTime, _, found = sleepy.heap.Peek()
+		if !found {
+			return
+		}
+
+		nextFire = time.Until(*fireTime)
+	}
 }

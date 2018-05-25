@@ -38,12 +38,11 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"errors"
 	"fmt"
-	"github.com/jwells131313/goethe"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -53,7 +52,7 @@ import (
 
 type poolData struct {
 	poolMux sync.Mutex
-	poolMap map[string]goethe.Pool
+	poolMap map[string]Pool
 }
 
 type timersData struct {
@@ -76,10 +75,10 @@ type goetheData struct {
 }
 
 type threadLocalOperators struct {
-	initializer func(goethe.ThreadLocal) error
-	destroyer   func(goethe.ThreadLocal) error
-	lock        goethe.Lock
-	actuals     map[int64]goethe.ThreadLocal
+	initializer func(ThreadLocal) error
+	destroyer   func(ThreadLocal) error
+	lock        Lock
+	actuals     map[int64]ThreadLocal
 }
 
 var (
@@ -93,7 +92,7 @@ const (
 
 func newGoethe() *goetheData {
 	pools := &poolData{
-		poolMap: make(map[string]goethe.Pool),
+		poolMap: make(map[string]Pool),
 	}
 
 	timers := &timersData{}
@@ -112,8 +111,8 @@ func newGoethe() *goetheData {
 	return retVal
 }
 
-// GetGoethe returns the systems goth global
-func GetGoethe() goethe.Goethe {
+// GetGoethe returns the systems goethe global
+func GetGoethe() Goethe {
 	return globalGoethe
 }
 
@@ -176,30 +175,30 @@ func (goth *goetheData) GetThreadID() int64 {
 	return int64(result)
 }
 
-func (goth *goetheData) NewGoetheLock() goethe.Lock {
-	return NewReaderWriterLock(goth)
+func (goth *goetheData) NewGoetheLock() Lock {
+	return newReaderWriterLock(goth)
 }
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
-func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) goethe.FunctionQueue {
+func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
 	return NewFunctionQueue(capacity)
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors
 // are returned when the ErrorQueue is at capacity the new errors are droppedmin
-func (goth *goetheData) NewErrorQueue(capacity uint32) goethe.ErrorQueue {
+func (goth *goetheData) NewErrorQueue(capacity uint32) ErrorQueue {
 	return NewBoundedErrorQueue(capacity)
 }
 
 // NewPool is the native implementation of NewPool
 func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
-	functionQueue goethe.FunctionQueue, errorQueue goethe.ErrorQueue) (goethe.Pool, error) {
+	functionQueue FunctionQueue, errorQueue ErrorQueue) (Pool, error) {
 	goth.pools.poolMux.Lock()
 	defer goth.pools.poolMux.Unlock()
 
 	foundPool, found := goth.pools.poolMap[name]
 	if found {
-		return foundPool, goethe.ErrPoolAlreadyExists
+		return foundPool, ErrPoolAlreadyExists
 	}
 
 	retVal, err := newThreadPool(goth, name, minThreads, maxThreads, idleDecayDuration, functionQueue,
@@ -215,7 +214,7 @@ func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32,
 
 // GetPool returns a non-closed pool with the given name.  If not found second
 // value returned will be false
-func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
+func (goth *goetheData) GetPool(name string) (Pool, bool) {
 	goth.pools.poolMux.Lock()
 	goth.pools.poolMux.Unlock()
 
@@ -227,8 +226,8 @@ func (goth *goetheData) GetPool(name string) (goethe.Pool, bool) {
 // EstablishThreadLocal tells the system of the named thread local storage
 // initialize method and destroy method.  This method can be called on any
 // thread, including non-goethe threads
-func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goethe.ThreadLocal) error,
-	destroyer func(goethe.ThreadLocal) error) error {
+func (goth *goetheData) EstablishThreadLocal(name string, initializer func(ThreadLocal) error,
+	destroyer func(ThreadLocal) error) error {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
 
@@ -241,7 +240,7 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goeth
 		initializer: initializer,
 		destroyer:   destroyer,
 		lock:        goth.NewGoetheLock(),
-		actuals:     make(map[int64]goethe.ThreadLocal),
+		actuals:     make(map[int64]ThreadLocal),
 	}
 
 	goth.locals.threadLocals[name] = operation
@@ -254,17 +253,17 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func(goeth
 // will return ErrNotGoetheThread if called from a non-goethe thread.
 // If EstablishThreadLocal with the given name has not been called prior to
 // this function call then ErrNoThreadLocalEstablished will be returned
-func (goth *goetheData) GetThreadLocal(name string) (goethe.ThreadLocal, error) {
+func (goth *goetheData) GetThreadLocal(name string) (ThreadLocal, error) {
 	tid := goth.GetThreadID()
 	if tid < int64(0) {
-		return nil, goethe.ErrNotGoetheThread
+		return nil, ErrNotGoetheThread
 	}
 
 	operators, found := goth.getOperatorsByName(name)
 	if !found {
 		operators = &threadLocalOperators{
 			lock:    goth.NewGoetheLock(),
-			actuals: make(map[int64]goethe.ThreadLocal),
+			actuals: make(map[int64]ThreadLocal),
 		}
 
 		goth.locals.localsMux.Lock()
@@ -307,7 +306,7 @@ func (goth *goetheData) startTimer() {
 
 	goth.Go(goth.timers.timer.run)
 
-	goth.EstablishThreadLocal(goethe.TimerThreadLocal, nil, nil)
+	goth.EstablishThreadLocal(TimerThreadLocal, nil, nil)
 }
 
 // ScheduleAtFixedRate schedules the given method with the given args at
@@ -317,7 +316,7 @@ func (goth *goetheData) startTimer() {
 // error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
-	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
+	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
 	if period < 1 {
@@ -343,7 +342,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 // An optional error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
 func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
-	errorQueue goethe.ErrorQueue, method interface{}, args ...interface{}) (goethe.Timer, error) {
+	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
 	if delay < 0 {

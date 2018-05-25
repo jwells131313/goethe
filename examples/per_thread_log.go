@@ -44,7 +44,6 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 	"math/rand"
 	"os"
 	"sync"
@@ -71,7 +70,7 @@ func nextRandom() time.Duration {
 }
 
 func getWriter() (*bufio.Writer, error) {
-	ethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	tl, err := ethe.GetThreadLocal(LocalLogger)
 	if err != nil {
@@ -113,7 +112,7 @@ func sleeper(count *int32, cond *sync.Cond) error {
 }
 
 func initializeLogger(tl goethe.ThreadLocal) error {
-	ethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 	tid := ethe.GetThreadID()
 
 	fileName := fmt.Sprintf("log.%d", tid)
@@ -167,7 +166,7 @@ func destroyLogger(tl goethe.ThreadLocal) error {
 func runSomeLoggingThreads() error {
 	ch := make(chan bool)
 
-	ethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	ethe.GoWithArgs(runner, ch)
 
@@ -180,7 +179,7 @@ func runSomeLoggingThreads() error {
 }
 
 func runner(ch chan bool) error {
-	ethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	err := ethe.EstablishThreadLocal(LocalLogger, initializeLogger, destroyLogger)
 	if err != nil {

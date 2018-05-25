@@ -43,7 +43,6 @@ package main
 import (
 	"fmt"
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 	"time"
 )
 
@@ -51,7 +50,7 @@ var count int
 
 // RunClockForOneHour ringing a bell every five minutes
 func RunClockForOneHour() {
-	ethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	ethe.ScheduleAtFixedRate(0, 5*time.Minute, nil, ringBell)
 }
@@ -59,7 +58,7 @@ func RunClockForOneHour() {
 func ringBell() {
 	count++
 	if count >= 12 {
-		ethe := utilities.GetGoethe()
+		ethe := goethe.GetGoethe()
 
 		tl, _ := ethe.GetThreadLocal(goethe.TimerThreadLocal)
 		i, _ := tl.Get()

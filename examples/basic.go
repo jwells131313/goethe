@@ -42,11 +42,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
 )
 
 func basic() {
-	goethe := utilities.GetGoethe()
+	goethe := goethe.GetGoethe()
 
 	channel := make(chan int64)
 
@@ -67,7 +67,7 @@ func addMe(a, b, c int, ret chan int) {
 }
 
 func basicWithArgs() {
-	goethe := utilities.GetGoethe()
+	goethe := goethe.GetGoethe()
 
 	channel := make(chan int)
 

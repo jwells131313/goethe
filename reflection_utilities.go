@@ -38,11 +38,10 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe"
 	"reflect"
 )
 
@@ -90,7 +89,7 @@ func GetValues(method interface{}, args []interface{}) ([]reflect.Value, error) 
 
 // Invoke will call the method with the arguments, and ship any errors
 // returned by the method to the errorQueue (which may be nil)
-func Invoke(method interface{}, args []reflect.Value, errorQueue goethe.ErrorQueue) {
+func Invoke(method interface{}, args []reflect.Value, errorQueue ErrorQueue) {
 	val := reflect.ValueOf(method)
 	retVals := val.Call(args)
 

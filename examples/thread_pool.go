@@ -42,31 +42,30 @@ package main
 
 import (
 	"fmt"
-	ethe "github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
 	"math/rand"
 	"time"
 )
 
 type poolExample struct {
-	lock      ethe.Lock
+	lock      goethe.Lock
 	jobCount  int
 	totalJobs int
 }
 
 func useAPool() error {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	finished := make(chan bool)
-	errors := goethe.NewErrorQueue(1000)
+	errors := ethe.NewErrorQueue(1000)
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		poolInstance := &poolExample{
-			lock: goethe.NewGoetheLock(),
+			lock: ethe.NewGoetheLock(),
 		}
 
-		queue := goethe.NewBoundedFunctionQueue(1000)
-		pool, err := goethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
+		queue := ethe.NewBoundedFunctionQueue(1000)
+		pool, err := ethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
 		if err != nil {
 			finished <- false
 			return
@@ -157,8 +156,8 @@ func (poolInstance *poolExample) decrementJobs() {
 func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 	defer poolInstance.decrementJobs()
 
-	goethe := utilities.GetGoethe()
-	pool, _ := goethe.GetPool("example")
+	ethe := goethe.GetGoethe()
+	pool, _ := ethe.GetPool("example")
 
 	waitTime := getRandomWorkTime(rand)
 	if waitTime%13 == 0 {

@@ -42,10 +42,13 @@ package main
 
 import (
 	"fmt"
+	"github.com/jwells131313/goethe"
 	"time"
 )
 
 func main() {
+	goether := goethe.GetGoethe()
+
 	fmt.Println("Running counting writer locks...")
 	goether.Go(writer1)
 

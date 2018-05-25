@@ -38,16 +38,14 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"sync"
-
-	"github.com/jwells131313/goethe"
 )
 
 type goetheLock struct {
-	parent goethe.Goethe
+	parent Goethe
 
 	goMux sync.Mutex
 	cond  *sync.Cond
@@ -59,9 +57,7 @@ type goetheLock struct {
 	writersWaiting int64
 }
 
-// NewReaderWriterLock creates a reader
-// writer lock
-func NewReaderWriterLock(pparent goethe.Goethe) goethe.Lock {
+func newReaderWriterLock(pparent Goethe) Lock {
 	retVal := &goetheLock{
 		parent:        pparent,
 		holdingWriter: -2,
@@ -94,7 +90,7 @@ func (lock *goetheLock) Unlock() {
 func (lock *goetheLock) ReadLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return goethe.ErrNotGoetheThread
+		return ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -131,7 +127,7 @@ func (lock *goetheLock) incrementReadLock(tid int64) {
 func (lock *goetheLock) ReadUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return goethe.ErrNotGoetheThread
+		return ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -187,14 +183,14 @@ func (lock *goetheLock) getMyReadCount(localTid int64) int32 {
 func (lock *goetheLock) WriteLock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return goethe.ErrNotGoetheThread
+		return ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
 
 	if lock.getMyReadCount(tid) != 0 {
-		return goethe.ErrReadLockHeld
+		return ErrReadLockHeld
 	}
 
 	if lock.holdingWriter == tid {
@@ -221,14 +217,14 @@ func (lock *goetheLock) WriteLock() error {
 func (lock *goetheLock) WriteUnlock() error {
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return goethe.ErrNotGoetheThread
+		return ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
 
 	if tid != lock.holdingWriter {
-		return goethe.ErrWriteLockNotHeld
+		return ErrWriteLockNotHeld
 	}
 
 	lock.writerCount--

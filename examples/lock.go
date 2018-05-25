@@ -42,11 +42,10 @@ package main
 
 import (
 	"github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 )
 
-var goether goethe.Goethe = utilities.GetGoethe()
-var lock goethe.Lock = goether.NewGoetheLock()
+var ethe goethe.Goethe = goethe.GetGoethe()
+var lock goethe.Lock = ethe.NewGoetheLock()
 
 func writer1() {
 	lock.WriteLock()

@@ -42,16 +42,14 @@ package tests
 
 import (
 	"errors"
+	"github.com/jwells131313/goethe"
 	"testing"
-
-	ethe "github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
 )
 
 func TestBasicErrorFunctionality(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	errorQueue := goethe.NewErrorQueue(10)
+	errorQueue := ethe.NewErrorQueue(10)
 
 	info, found := errorQueue.Dequeue()
 	if found {
@@ -112,9 +110,9 @@ func TestBasicErrorFunctionality(t *testing.T) {
 }
 
 func TestCapacityWorks(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	errorQueue := goethe.NewErrorQueue(10)
+	errorQueue := ethe.NewErrorQueue(10)
 
 	errorInfo := &dummyErrorInformation{
 		tid: 10,
@@ -135,7 +133,7 @@ func TestCapacityWorks(t *testing.T) {
 		t.Errorf("should have been an error, we are one past capacity")
 		return
 	}
-	if err != ethe.ErrAtCapacity {
+	if err != goethe.ErrAtCapacity {
 		t.Errorf("unexpected error when adding past capacity: %v", err)
 		return
 	}

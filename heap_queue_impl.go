@@ -38,7 +38,7 @@
  * holder.
  */
 
-package utilities
+package goethe
 
 import (
 	"fmt"
@@ -66,8 +66,7 @@ type heapQueueData struct {
 	queue []*heapNode
 }
 
-// NewHeap returns a new empty HeapQueue
-func NewHeap() HeapQueue {
+func newHeap() HeapQueue {
 	return &heapQueueData{
 		queue: make([]*heapNode, 0),
 	}

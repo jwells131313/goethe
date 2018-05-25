@@ -42,26 +42,24 @@ package tests
 
 import (
 	"errors"
+	"github.com/jwells131313/goethe"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
-
-	ethe "github.com/jwells131313/goethe"
-	"github.com/jwells131313/goethe/utilities"
-	"reflect"
 )
 
 func TestBasicFQFunctionality(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
 	info, err := funcQueue.Dequeue(0)
 	if err == nil {
 		t.Errorf("should not have found anything in newly created queue")
 		return
 	}
-	if err != ethe.ErrEmptyQueue {
+	if err != goethe.ErrEmptyQueue {
 		t.Errorf("unexpected error returned %v", err)
 		return
 	}
@@ -112,7 +110,7 @@ func TestBasicFQFunctionality(t *testing.T) {
 		t.Errorf("after dequing message there should be none left %v", err)
 		return
 	}
-	if err != ethe.ErrEmptyQueue {
+	if err != goethe.ErrEmptyQueue {
 		t.Errorf("unexpected error returned %v", err)
 		return
 	}
@@ -125,9 +123,9 @@ func TestBasicFQFunctionality(t *testing.T) {
 }
 
 func TestFQCapacityWorks(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(5)
+	funcQueue := ethe.NewBoundedFunctionQueue(5)
 
 	f0 := func() error {
 		return nil
@@ -165,16 +163,16 @@ func TestFQCapacityWorks(t *testing.T) {
 		t.Errorf("should have been an error, we are one past capacity")
 		return
 	}
-	if err != ethe.ErrAtCapacity {
+	if err != goethe.ErrAtCapacity {
 		t.Errorf("unexpected error when adding past capacity: %v", err)
 		return
 	}
 }
 
 func TestFQEmptyQueueBlocks(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
 	current := time.Now()
 
@@ -183,7 +181,7 @@ func TestFQEmptyQueueBlocks(t *testing.T) {
 		t.Error("Expected an error after waiting two seconds")
 		return
 	}
-	if err != ethe.ErrEmptyQueue {
+	if err != goethe.ErrEmptyQueue {
 		t.Errorf("unexpected exception %v", err)
 		return
 	}
@@ -196,9 +194,9 @@ func TestFQEmptyQueueBlocks(t *testing.T) {
 }
 
 func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
-	funcQueue := goethe.NewBoundedFunctionQueue(10)
+	funcQueue := ethe.NewBoundedFunctionQueue(10)
 
 	mux := sync.Mutex{}
 	cond := sync.NewCond(&mux)
@@ -219,7 +217,7 @@ func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 
 	errorOutput := make(chan error)
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		g, err := funcQueue.Dequeue(10 * time.Second)
 		if err != nil {
 			errorOutput <- err
