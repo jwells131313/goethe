@@ -168,7 +168,7 @@ func runSomeLoggingThreads() error {
 
 	ethe := goethe.GetGoethe()
 
-	ethe.GoWithArgs(runner, ch)
+	ethe.Go(runner, ch)
 
 	result := <-ch
 	if !result {

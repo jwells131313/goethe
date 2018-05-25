@@ -80,18 +80,13 @@ type ThreadLocal interface {
 // that can have things such as threadIds and thread
 // local storage
 type Goethe interface {
-	// Go Runs the given function with the given parameters
-	// in a new go thread.  Will always allocate a new
-	// thread-id.  Returns the tid of the thread run
-	Go(func()) (int64, error)
-
 	// GoWithArgs takes as a first argument any function and
 	// all the remaining fields are the arguments to that function
 	// it is up to the caller to maintain type safety
-	// If this method detects any discrepency between the
+	// If this method detects any discrepancy between the
 	// function passed in and the number and/or type or arguments
 	// an error is returned.  The thread id is also returned
-	GoWithArgs(interface{}, ...interface{}) (int64, error)
+	Go(interface{}, ...interface{}) (int64, error)
 
 	// GetthreadID Gets the current threadID.  Returns -1
 	// if this is not a goethe thread.  Thread ids start at 10

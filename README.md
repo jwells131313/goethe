@@ -92,8 +92,8 @@ func basic() {
 }
 ```
 
-You can also use a method that takes arguments with goethe.  For this
-use the GoWithArgs method as in the following example:
+You can also use the Go function for a method that takes arguments.  The following
+example passes the parameters into the function.
 
 ```go
 package foo
@@ -112,7 +112,7 @@ func basicWithArgs() {
 
 	channel := make(chan int)
 
-	ethe.GoWithArgs(addMe, 1, 2, 3, channel)
+	ethe.Go(addMe, 1, 2, 3, channel)
 
 	sum := <-channel
 	fmt.Println("the sum in my thread was ", sum)

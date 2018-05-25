@@ -71,7 +71,7 @@ func basicWithArgs() {
 
 	channel := make(chan int)
 
-	goethe.GoWithArgs(addMe, 1, 2, 3, channel)
+	goethe.Go(addMe, 1, 2, 3, channel)
 
 	sum := <-channel
 	fmt.Println("the sum in my thread was ", sum)

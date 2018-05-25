@@ -124,11 +124,7 @@ func (goth *goetheData) getAndIncrementTid() int64 {
 	return goth.lastTid
 }
 
-func (goth *goetheData) Go(userCall func()) (int64, error) {
-	return goth.GoWithArgs(userCall)
-}
-
-func (goth *goetheData) GoWithArgs(userCall interface{}, args ...interface{}) (int64, error) {
+func (goth *goetheData) Go(userCall interface{}, args ...interface{}) (int64, error) {
 	tid := goth.getAndIncrementTid()
 
 	argArray := make([]interface{}, len(args))

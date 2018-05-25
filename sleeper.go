@@ -107,7 +107,7 @@ func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNum
 	sleepy.heap.Add(&ringsAt, newNode)
 
 	if startNewThread {
-		GetGoethe().GoWithArgs(sleepy.waiter, duration)
+		GetGoethe().Go(sleepy.waiter, duration)
 	}
 }
 

@@ -149,11 +149,11 @@ func (threadPool *threadPool) Start() error {
 
 	var lcv int32
 	for lcv = 0; lcv < threadPool.minThreads; lcv++ {
-		goether.GoWithArgs(threadRunner, threadPool)
+		goether.Go(threadRunner, threadPool)
 		threadPool.currentThreads++
 	}
 
-	goether.GoWithArgs(threadPool.monitor)
+	goether.Go(threadPool.monitor)
 	threadPool.functionalQueue.SetStateChangeCallback(threadPool.functionalQueueChanged)
 
 	threadPool.started = true
@@ -294,7 +294,7 @@ func (threadPool *threadPool) monitorOnce() {
 		// We have to grow!
 		goether := GetGoethe()
 
-		goether.GoWithArgs(threadRunner, threadPool)
+		goether.Go(threadRunner, threadPool)
 		threadPool.currentThreads++
 	}
 }

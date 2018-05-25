@@ -168,7 +168,7 @@ func (timer *timerData) runOne() bool {
 		timer.scheduleNext(job, &nextRunTime)
 	}
 
-	goethe.GoWithArgs(timer.invoke, goethe, job)
+	goethe.Go(timer.invoke, goethe, job)
 
 	// schedule next guy to go
 	timer.scheduleNextWakeUp()
@@ -242,7 +242,7 @@ func (timer *timerData) addJob(
 		errors:      errorQueue,
 	}
 
-	_, err := ethe.GoWithArgs(timer.scheduleNext, retVal, &added)
+	_, err := ethe.Go(timer.scheduleNext, retVal, &added)
 	if err != nil {
 		return nil, err
 	}

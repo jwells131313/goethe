@@ -121,7 +121,7 @@ func TestGoWithArgs(t *testing.T) {
 
 	ret := make(chan int)
 
-	goethe.GoWithArgs(addMe, 1, 2, 3, ret)
+	goethe.Go(addMe, 1, 2, 3, ret)
 
 	val := <-ret
 
@@ -136,7 +136,7 @@ func TestGoWithArgsFunctionReturnsError(t *testing.T) {
 
 	err := errors.New("an error")
 
-	goethe.GoWithArgs(returnError, err)
+	goethe.Go(returnError, err)
 }
 
 func addMe(a, b, c int, ret chan int) {
