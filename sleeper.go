@@ -56,7 +56,7 @@ type sleeperNode struct {
 }
 
 type sleeperImpl struct {
-	heap HeapQueue
+	heap heapQueue
 	lock Lock
 	jobs map[uint64]uint64
 }

@@ -47,9 +47,9 @@ import (
 	"time"
 )
 
-// HeapQueue is a queue of durations sorted as least duration first
+// heapQueue is a queue of durations sorted as least duration first
 // order of add is log n, order of remove is log n
-type HeapQueue interface {
+type heapQueue interface {
 	Add(*time.Time, interface{}) error
 	Get() (*time.Time, interface{}, bool)
 	Peek() (*time.Time, interface{}, bool)
@@ -66,7 +66,7 @@ type heapQueueData struct {
 	queue []*heapNode
 }
 
-func newHeap() HeapQueue {
+func newHeap() heapQueue {
 	return &heapQueueData{
 		queue: make([]*heapNode, 0),
 	}

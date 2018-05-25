@@ -66,7 +66,7 @@ type timerImpl interface {
 type timerData struct {
 	mux           Lock
 	cond          *sync.Cond
-	heap          HeapQueue
+	heap          heapQueue
 	nextJobNumber int64
 	sleepy        sleeper
 	nextJob       uint64
