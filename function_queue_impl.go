@@ -54,8 +54,8 @@ type functionErrorQueue struct {
 	queue    []*FunctionDescriptor
 }
 
-// NewFunctionQueue creates a new function queue with the given capacity
-func NewFunctionQueue(userCapacity uint32) FunctionQueue {
+// newFunctionQueue creates a new function queue with the given capacity
+func newFunctionQueue(userCapacity uint32) FunctionQueue {
 	retVal := &functionErrorQueue{
 		capacity: userCapacity,
 		queue:    make([]*FunctionDescriptor, 0),

@@ -51,8 +51,8 @@ type boundedErrorQueue struct {
 	queue    []ErrorInformation
 }
 
-// NewBoundedErrorQueue creates a new error queue with the given capacity
-func NewBoundedErrorQueue(userCapacity uint32) ErrorQueue {
+// newBoundedErrorQueue creates a new error queue with the given capacity
+func newBoundedErrorQueue(userCapacity uint32) ErrorQueue {
 	return &boundedErrorQueue{
 		capacity: userCapacity,
 		queue:    make([]ErrorInformation, 0),

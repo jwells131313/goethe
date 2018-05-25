@@ -182,13 +182,13 @@ func (goth *goetheData) NewGoetheLock() Lock {
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
 func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
-	return NewFunctionQueue(capacity)
+	return newFunctionQueue(capacity)
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors
 // are returned when the ErrorQueue is at capacity the new errors are droppedmin
 func (goth *goetheData) NewErrorQueue(capacity uint32) ErrorQueue {
-	return NewBoundedErrorQueue(capacity)
+	return newBoundedErrorQueue(capacity)
 }
 
 // NewPool is the native implementation of NewPool
