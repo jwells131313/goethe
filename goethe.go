@@ -80,7 +80,7 @@ type ThreadLocal interface {
 // that can have things such as threadIds and thread
 // local storage
 type GoetheI interface {
-	// GoWithArgs takes as a first argument any function and
+	// Go takes as a first argument any function and
 	// all the remaining fields are the arguments to that function
 	// it is up to the caller to maintain type safety
 	// If this method detects any discrepancy between the
