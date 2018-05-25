@@ -75,13 +75,13 @@ import (
 )
 
 func basic() {
-	ethe := goethe.GetGoethe()
+	ethe := goethe.GG()
 
 	channel := make(chan int64)
 
 	ethe.Go(func() {
 		// A thread ID!
-		tid := goethe.GetThreadID()
+		tid := ethe.GetThreadID()
 
 		// Tell momma about our thread-id
 		channel <- tid
@@ -139,7 +139,7 @@ import (
 	"github.com/jwells131313/goethe"
 )
 
-var ethe goethe.Goethe = goethe.GetGoethe()
+var ethe goethe.GoetheI = goethe.GG()
 var lock goethe.Lock = ethe.NewGoetheLock()
 
 func writer1() {
