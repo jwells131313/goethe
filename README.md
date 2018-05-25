@@ -47,7 +47,7 @@ particular goethe (pronounced ger-tay) threads have thread-ids which can be usef
 and in thread pools.
 
 This package maintains one global goethe implementation which can be gotten using the
-github.com/jwells131313/goethe/utilities.GetGoethe() method.
+github.com/jwells131313/goethe.GetGoethe() method.
 
 NOTE:  The current version of this API is 0.1.  This means that the API has
 not settled completely and may change in future revisions.  Once the goethe
@@ -71,15 +71,15 @@ package foo
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
 )
 
 func basic() {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	channel := make(chan int64)
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		// A thread ID!
 		tid := goethe.GetThreadID()
 
@@ -100,7 +100,7 @@ package foo
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe/utilities"
+	"github.com/jwells131313/goethe"
 )
 
 func addMe(a, b, c int, ret chan int) {
@@ -108,11 +108,11 @@ func addMe(a, b, c int, ret chan int) {
 }
 
 func basicWithArgs() {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	channel := make(chan int)
 
-	goethe.GoWithArgs(addMe, 1, 2, 3, channel)
+	ethe.GoWithArgs(addMe, 1, 2, 3, channel)
 
 	sum := <-channel
 	fmt.Println("the sum in my thread was ", sum)
@@ -136,12 +136,11 @@ The following is an example of a recursive write lock
 package main
 
 import (
-	"github.com/jwells131313/goethe/utilities"
 	"github.com/jwells131313/goethe"
 )
 
-var goether goethe.Goethe = utilities.GetGoethe()
-var lock goethe.Lock = goether.NewGoetheLock()
+var ethe goethe.Goethe = goethe.GetGoethe()
+var lock goethe.Lock = ethe.NewGoetheLock()
 
 func writer1() {
 	lock.WriteLock()
@@ -156,7 +155,7 @@ func writer2() {
 }
 
 func main() {
-	goether.Go(writer1)
+	ethe.Go(writer1)
 }
 ```
 
@@ -170,15 +169,16 @@ locks in your threaded application.
 
 In order to create a thread pool you specify the min threads in the the pool, the max threads
 in the pool and the decay time, which is the time a thread will be idle before being released
-(if the number of threads is greater than the min).  You also give the pool an implementation
-of a FunctionQueue.  You can also get a default implementation of FunctionQueue from the goethe
-service.  However any implementation of FunctionQueue will work, which allows you to use
-priority queues or other queue implementations.  Once a queue is associated with a pool you use
-the queue Enqueue API to give jobs to the thread pool.
+(if the number of threads is greater than the min).
+
+You also give the pool an implementation of a FunctionQueue.  You can also get a default
+implementation of FunctionQueue from the goethe service.  However any implementation of
+FunctionQueue will work, which allows you to use priority queues or other queue implementations.
+Once a queue is associated with a pool you use the queue Enqueue API to give jobs to the thread pool.
 
 You can also give the pool an ErrorQueue.  Any non-nil errors returned from the enqueued jobs will
 be placed on the ErrorQueue.  It is up to the application to check and drain the ErrorQueue for
-errors
+errors.
 
 The following example uses recursive read/write locks, an error queue and a functional queue along
 with a pool.  The actual work done in the randomWork method is just sleeping anywhere from 1 to 99
@@ -192,24 +192,24 @@ locks.  Here is the example:
 
 ```go
 type poolExample struct {
-	lock      ethe.Lock
+	lock      goethe.Lock
 	jobCount  int
 	totalJobs int
 }
 
 func useAPool() error {
-	goethe := utilities.GetGoethe()
+	ethe := goethe.GetGoethe()
 
 	finished := make(chan bool)
 	errors := goethe.NewErrorQueue(1000)
 
-	goethe.Go(func() {
+	ethe.Go(func() {
 		poolInstance := &poolExample{
 			lock: goethe.NewGoetheLock(),
 		}
 
 		queue := goethe.NewBoundedFunctionQueue(1000)
-		pool, err := goethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
+		pool, err := ethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
 		if err != nil {
 			finished <- false
 			return
@@ -302,8 +302,8 @@ func (poolInstance *poolExample) decrementJobs() {
 func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 	defer poolInstance.decrementJobs()
 
-	goethe := utilities.GetGoethe()
-	pool, _ := goethe.GetPool("example")
+	ethe := goethe.GetGoethe()
+	pool, _ := ethe.GetPool("example")
 
 	waitTime := getRandomWorkTime(rand)
 	if waitTime%13 == 0 {
@@ -338,11 +338,11 @@ the type returned by the initializer.  Each thread has its own copy of the type 
 will not interfere with each other.  When the thread goes away the destructor for all named
 thread local storage associated with that thread will be called.
 
-UNDER CONSTRUCTION need an example
+Under construction: need an example of the use of thread local storage
 
 ### Timers
 
-Goethe provides timer threads that run periodically.  There are two types of timers, one
+Goethe provides timer threads that run user code periodically.  There are two types of timers, one
 with fixed delay and one with fixed rate.
 
 A fixed delay timer will start the next timer once the user code has run to completion.  So
@@ -351,14 +351,16 @@ completed and the delay period has passed again.  This timer is started with the
 Goethe.ScheduleWithFixedDelay method
 
 A fixed rate timer will run every multiple of the given period, whether or not the user code
-from previous runs of the timer have completed (on different Goethe threads, obviously).  This
+from previous runs of the timer have completed (on different Goethe threads).  This
 allows for stricter control of the scheduling of the timer, but the user code must be written
 with the knowledge that it could be run again on another thread.
 
-Both timers set a ThreadLocalStorage variable named **goethe.Timer**.  This makes it very easy
-to give the running timer code the ability to cancel the timer itself.  In the following example
-a bell is run every five minutes 12 times, after which time the thread itself cancels the
-timer.
+Both timers set a ThreadLocalStorage variable named **goethe.Timer** (also held in the
+goethe.TimerThreadLocal variable).  This makes it easy to give the running timer code the
+ability to cancel the timer itself.
+
+In the following example a bell is run every five minutes 12 times, after which time the
+thread itself cancels the timer.
 
 ```go
 var count int
