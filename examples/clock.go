@@ -42,31 +42,30 @@ package main
 
 import (
 	"fmt"
+	"github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/utilities"
 	"time"
 )
 
-func main() {
-	fmt.Println("Running counting writer locks...")
-	goether.Go(writer1)
+var count int
 
-	fmt.Println("Running no argument thread example...")
-	basic()
+// RunClockForOneHour ringing a bell every five minutes
+func RunClockForOneHour() {
+	ethe := utilities.GetGoethe()
 
-	fmt.Println("Running method with arguments thread example...")
-	basicWithArgs()
+	ethe.ScheduleAtFixedRate(0, 5*time.Minute, nil, ringBell)
+}
 
-	fmt.Println("Running a thread pool...")
-	useAPool()
+func ringBell() {
+	count++
+	if count >= 12 {
+		ethe := utilities.GetGoethe()
 
-	fmt.Println("Run some per-thread loggers...")
-	err := runSomeLoggingThreads()
-	if err != nil {
-		fmt.Println(err.Error())
+		tl, _ := ethe.GetThreadLocal(goethe.TimerThreadLocal)
+		i, _ := tl.Get()
+		timer := i.(goethe.Timer)
+		timer.Cancel()
 	}
 
-	RunClockForOneHour()
-
-	time.Sleep(10 * time.Minute)
-
-	fmt.Println("have a nice day")
+	fmt.Printf("Bell at count %d\a\n", count)
 }

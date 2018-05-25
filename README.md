@@ -59,6 +59,7 @@ have questions or comments please open issues.  Thank you.
 2. [Recursive Locks](#recursive-locks)
 3. [Thread Pools](#thread-pools)
 4. [Thread Local Storage](#thread-local-storage)
+5. [Timers](#timers)
 
 ### ThreadID
 
@@ -339,13 +340,56 @@ thread local storage associated with that thread will be called.
 
 UNDER CONSTRUCTION need an example
 
+### Timers
+
+Goethe provides timer threads that run periodically.  There are two types of timers, one
+with fixed delay and one with fixed rate.
+
+A fixed delay timer will start the next timer once the user code has run to completion.  So
+long running user code will cause the timer to not be invoked again until the user code has
+completed and the delay period has passed again.  This timer is started with the
+Goethe.ScheduleWithFixedDelay method
+
+A fixed rate timer will run every multiple of the given period, whether or not the user code
+from previous runs of the timer have completed (on different Goethe threads, obviously).  This
+allows for stricter control of the scheduling of the timer, but the user code must be written
+with the knowledge that it could be run again on another thread.
+
+Both timers set a ThreadLocalStorage variable named **goethe.Timer**.  This makes it very easy
+to give the running timer code the ability to cancel the timer itself.  In the following example
+a bell is run every five minutes 12 times, after which time the thread itself cancels the
+timer.
+
+```go
+var count int
+
+// RunClockForOneHour ringing a bell every five minutes
+func RunClockForOneHour() {
+	ethe := utilities.GetGoethe()
+
+	ethe.ScheduleAtFixedRate(0, 5*time.Minute, nil, ringBell)
+}
+
+func ringBell() {
+	count++
+	if count >= 12 {
+		ethe := utilities.GetGoethe()
+
+		tl, _ := ethe.GetThreadLocal(goethe.TimerThreadLocal)
+		i, _ := tl.Get()
+		timer := i.(goethe.Timer)
+		timer.Cancel()
+	}
+
+	fmt.Printf("Bell at count %d\a\n", count)
+}
+```
+
 ### Under Construction
 
 In the future it is intended for goethe to provide the following:
 
-* Scheduled execution of things (on goethe threads)
 * locks you can try
 * locks you can give up on after some duration
-* Threading Utilities Requests?
 
 ![](https://github.com/jwells131313/goethe/blob/master/images/goth.jpg "Go Thread Utilities")
