@@ -277,7 +277,7 @@ func (goth *goetheData) GetThreadLocal(name string) (ThreadLocal, error) {
 
 	actual, found := operators.actuals[tid]
 	if !found {
-		actual = NewThreadLocal(name, goth, tid)
+		actual = newThreadLocal(name, goth, tid)
 
 		if operators.initializer != nil {
 			operators.initializer(actual)

@@ -47,8 +47,8 @@ type threadLocal struct {
 	data   interface{}
 }
 
-// NewThreadLocal returns a new thread local for a specific thread
-func NewThreadLocal(name string, parent Goethe, tid int64) ThreadLocal {
+// newThreadLocal returns a new thread local for a specific thread
+func newThreadLocal(name string, parent Goethe, tid int64) ThreadLocal {
 	return &threadLocal{
 		parent: parent,
 		tid:    tid,
