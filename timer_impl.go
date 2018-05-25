@@ -209,7 +209,7 @@ func (timer *timerData) invoke(ethe Goethe, job *timerJob) {
 
 	tl.Set(job)
 
-	Invoke(job.method, job.args, job.errors)
+	invoke(job.method, job.args, job.errors)
 
 	if job.fixed {
 		// parent put new job on

@@ -137,7 +137,7 @@ func (goth *goetheData) Go(userCall interface{}, args ...interface{}) (int64, er
 		argArray[index] = arg
 	}
 
-	arguments, err := GetValues(userCall, argArray)
+	arguments, err := getValues(userCall, argArray)
 	if err != nil {
 		return -1, err
 	}
@@ -329,7 +329,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 		argArray[index] = arg
 	}
 
-	arguments, err := GetValues(method, argArray)
+	arguments, err := getValues(method, argArray)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +355,7 @@ func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay
 		argArray[index] = arg
 	}
 
-	arguments, err := GetValues(method, argArray)
+	arguments, err := getValues(method, argArray)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +423,7 @@ func invokeStart(tid int64, userCall interface{}, args []reflect.Value) error {
 func invokeEnd(tid int64, userCall interface{}, args []reflect.Value) error {
 	defer globalGoethe.removeAllActuals(tid)
 
-	Invoke(userCall, args, nil)
+	invoke(userCall, args, nil)
 
 	return nil
 }

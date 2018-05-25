@@ -45,11 +45,11 @@ import (
 	"reflect"
 )
 
-// GetValues returns the reflection values for the arguments as specified by
+// getValues returns the reflection values for the arguments as specified by
 // the method parameters.  Will fail if the wrong number of arguments is passed
 // in or the arguments are not the correct type.  Otherwise will return
 // the value versions of the arguments
-func GetValues(method interface{}, args []interface{}) ([]reflect.Value, error) {
+func getValues(method interface{}, args []interface{}) ([]reflect.Value, error) {
 	typ := reflect.TypeOf(method)
 	kin := typ.Kind()
 	if kin != reflect.Func {
@@ -87,9 +87,9 @@ func GetValues(method interface{}, args []interface{}) ([]reflect.Value, error) 
 	return arguments, nil
 }
 
-// Invoke will call the method with the arguments, and ship any errors
+// invoke will call the method with the arguments, and ship any errors
 // returned by the method to the errorQueue (which may be nil)
-func Invoke(method interface{}, args []reflect.Value, errorQueue ErrorQueue) {
+func invoke(method interface{}, args []reflect.Value, errorQueue ErrorQueue) {
 	val := reflect.ValueOf(method)
 	retVals := val.Call(args)
 

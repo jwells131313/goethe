@@ -339,13 +339,13 @@ func threadRunner(threadPool *threadPool) {
 		} else {
 			changeMapState(threadPool, tid, RUNNING)
 
-			argsAsVals, err := GetValues(descriptor.UserCall, descriptor.Args)
+			argsAsVals, err := getValues(descriptor.UserCall, descriptor.Args)
 			if err != nil {
 				// Todo: log this error or something?
 				return
 			}
 
-			Invoke(descriptor.UserCall, argsAsVals, threadPool.errorQueue)
+			invoke(descriptor.UserCall, argsAsVals, threadPool.errorQueue)
 		}
 	}
 }

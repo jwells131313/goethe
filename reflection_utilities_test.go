@@ -55,7 +55,7 @@ func TestGetValues(t *testing.T) {
 	input = append(input, "b")
 	input = append(input, "c")
 
-	v, err := GetValues(aAa, input)
+	v, err := getValues(aAa, input)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
@@ -93,14 +93,14 @@ func TestInvokeWithNil(t *testing.T) {
 
 	input = append(input, rChan)
 
-	v, err := GetValues(bbB, input)
+	v, err := getValues(bbB, input)
 	if err != nil {
 		t.Errorf("%v", err)
 		return
 	}
 
 	go func() {
-		Invoke(bbB, v, nil)
+		invoke(bbB, v, nil)
 	}()
 
 	r0 := <-rChan
