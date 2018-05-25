@@ -65,7 +65,11 @@ type threadLocalsData struct {
 	threadLocals map[string]*threadLocalOperators
 }
 
-type goetheData struct {
+// Goethe provides methods for using the goethe threading
+// system, including timers, pools, recursive locks,
+// and thread pools.  It implements the GoetheI interface
+// which is what the GG and GetGoethe methods return
+type Goethe struct {
 	tidMux  sync.Mutex
 	lastTid int64
 
@@ -90,7 +94,7 @@ const (
 	timerTid = 9
 )
 
-func newGoethe() *goetheData {
+func newGoethe() *Goethe {
 	pools := &poolData{
 		poolMap: make(map[string]Pool),
 	}
@@ -101,7 +105,7 @@ func newGoethe() *goetheData {
 		threadLocals: make(map[string]*threadLocalOperators),
 	}
 
-	retVal := &goetheData{
+	retVal := &Goethe{
 		lastTid: 9,
 		pools:   pools,
 		timers:  timers,
@@ -112,16 +116,16 @@ func newGoethe() *goetheData {
 }
 
 // GetGoethe returns the systems goethe global
-func GetGoethe() Goethe {
+func GetGoethe() GoetheI {
 	return GG()
 }
 
 // GG returns the system goethe global implementation, and also means "Good Game"
-func GG() Goethe {
+func GG() GoetheI {
 	return globalGoethe
 }
 
-func (goth *goetheData) getAndIncrementTid() int64 {
+func (goth *Goethe) getAndIncrementTid() int64 {
 	goth.tidMux.Lock()
 	defer goth.tidMux.Unlock()
 
@@ -129,7 +133,13 @@ func (goth *goetheData) getAndIncrementTid() int64 {
 	return goth.lastTid
 }
 
-func (goth *goetheData) Go(userCall interface{}, args ...interface{}) (int64, error) {
+// Go takes as a first argument any function and
+// all the remaining fields are the arguments to that function
+// it is up to the caller to maintain type safety
+// If this method detects any discrepancy between the
+// function passed in and the number and/or type or arguments
+// an error is returned.  The thread id is also returned
+func (goth *Goethe) Go(userCall interface{}, args ...interface{}) (int64, error) {
 	tid := goth.getAndIncrementTid()
 
 	argArray := make([]interface{}, len(args))
@@ -147,7 +157,10 @@ func (goth *goetheData) Go(userCall interface{}, args ...interface{}) (int64, er
 	return tid, nil
 }
 
-func (goth *goetheData) GetThreadID() int64 {
+// GetThreadID Gets the current threadID.  Returns -1
+// if this is not a goethe thread.  Thread ids start at 10
+// as thread ids 0 through 9 are reserved for future use
+func (goth *Goethe) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)
 
@@ -176,23 +189,39 @@ func (goth *goetheData) GetThreadID() int64 {
 	return int64(result)
 }
 
-func (goth *goetheData) NewGoetheLock() Lock {
+// NewGoetheLock Creates a new goethe lock
+func (goth *Goethe) NewGoetheLock() Lock {
 	return newReaderWriterLock(goth)
 }
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
-func (goth *goetheData) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
+func (goth *Goethe) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
 	return newFunctionQueue(capacity)
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors
 // are returned when the ErrorQueue is at capacity the new errors are droppedmin
-func (goth *goetheData) NewErrorQueue(capacity uint32) ErrorQueue {
+func (goth *Goethe) NewErrorQueue(capacity uint32) ErrorQueue {
 	return newBoundedErrorQueue(capacity)
 }
 
-// NewPool is the native implementation of NewPool
-func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
+// NewPool creates a new thread pool with the given parameters.  The name is the
+// name of this pool and may not be empty.  It is an error to try to create more than
+// one open pool with the same name at the same time.
+// minThreads is the minimum number of  threads that this pool will maintain while it is open.
+// minThreads may be zero. maxThreads is the maximum number of threads this pool will ever
+// allocate simultaneously.  New threads will be allocated if all of the threads in the
+// pool are busy and the FunctionQueue is not empty (and the total number of threads is less
+// than maxThreads) maxThreads must be greater than or equal to minThreads.  Having min and max
+// threads both be zero is an error.  Having min and max threads be the same value implies
+// a fixed thread size pool.  The idleDecayDuration is how long the system will wait
+// while the number of threads is greater than minThreads before removing ending the
+// thread.  functionQueue may not be nil and is how functions are enqueued onto the
+// thread pool.  errorQueue may be nil but if not nil any error returned by the function
+// will be enqueued onto the errorQueue.  It is recommended that the implementation of
+// ErrorQueue have some sort of upper bound.  If a pool with the given name already
+// exists the old pool will be returned along with an ErrPoolAlreadyExists error
+func (goth *Goethe) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 	functionQueue FunctionQueue, errorQueue ErrorQueue) (Pool, error) {
 	goth.pools.poolMux.Lock()
 	defer goth.pools.poolMux.Unlock()
@@ -215,7 +244,7 @@ func (goth *goetheData) NewPool(name string, minThreads int32, maxThreads int32,
 
 // GetPool returns a non-closed pool with the given name.  If not found second
 // value returned will be false
-func (goth *goetheData) GetPool(name string) (Pool, bool) {
+func (goth *Goethe) GetPool(name string) (Pool, bool) {
 	goth.pools.poolMux.Lock()
 	goth.pools.poolMux.Unlock()
 
@@ -226,8 +255,10 @@ func (goth *goetheData) GetPool(name string) (Pool, bool) {
 
 // EstablishThreadLocal tells the system of the named thread local storage
 // initialize method and destroy method.  This method can be called on any
-// thread, including non-goethe threads
-func (goth *goetheData) EstablishThreadLocal(name string, initializer func(ThreadLocal) error,
+// thread, including non-goethe threads.  Both the initializer and
+// destroyer methods may be nil.  Any errors thrown by these function
+// will be put on the error queue
+func (goth *Goethe) EstablishThreadLocal(name string, initializer func(ThreadLocal) error,
 	destroyer func(ThreadLocal) error) error {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
@@ -249,12 +280,13 @@ func (goth *goetheData) EstablishThreadLocal(name string, initializer func(Threa
 	return nil
 }
 
-// Get thread local returns the instance of the storage associated with
+// GetThreadLocal returns the instance of the storage associated with
 // the current goethe thread.  May only be called on goethe threads and
 // will return ErrNotGoetheThread if called from a non-goethe thread.
 // If EstablishThreadLocal with the given name has not been called prior to
-// this function call then ErrNoThreadLocalEstablished will be returned
-func (goth *goetheData) GetThreadLocal(name string) (ThreadLocal, error) {
+// this function call then a ThreadLocal with no initializer/destroyer
+// methods will be used
+func (goth *Goethe) GetThreadLocal(name string) (ThreadLocal, error) {
 	tid := goth.GetThreadID()
 	if tid < int64(0) {
 		return nil, ErrNotGoetheThread
@@ -289,7 +321,7 @@ func (goth *goetheData) GetThreadLocal(name string) (ThreadLocal, error) {
 	return actual, nil
 }
 
-func (goth *goetheData) startTimer() {
+func (goth *Goethe) startTimer() {
 	goth.timers.timerMux.Lock()
 	defer goth.timers.timerMux.Unlock()
 
@@ -316,7 +348,7 @@ func (goth *goetheData) startTimer() {
 // and will then be scheduled at multiples of the period.  An optional
 // error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
-func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
+func (goth *Goethe) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
 	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
@@ -342,7 +374,7 @@ func (goth *goetheData) ScheduleAtFixedRate(initialDelay time.Duration, period t
 // The first run will happen only after initialDelay
 // An optional error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
-func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
+func (goth *Goethe) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
 	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
@@ -363,7 +395,7 @@ func (goth *goetheData) ScheduleWithFixedDelay(initialDelay time.Duration, delay
 	return goth.timers.timer.addJob(initialDelay, delay, errorQueue, method, arguments, false)
 }
 
-func (goth *goetheData) getOperatorsByName(name string) (*threadLocalOperators, bool) {
+func (goth *Goethe) getOperatorsByName(name string) (*threadLocalOperators, bool) {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
 
@@ -388,7 +420,7 @@ func removeThreadLocal(operators *threadLocalOperators, tid int64) {
 	delete(operators.actuals, tid)
 }
 
-func (goth *goetheData) removeAllActuals(tid int64) {
+func (goth *Goethe) removeAllActuals(tid int64) {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
 
@@ -397,7 +429,7 @@ func (goth *goetheData) removeAllActuals(tid int64) {
 	}
 }
 
-func (goth *goetheData) removePool(name string) {
+func (goth *Goethe) removePool(name string) {
 	goth.pools.poolMux.Lock()
 	goth.pools.poolMux.Unlock()
 

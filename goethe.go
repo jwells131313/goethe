@@ -76,10 +76,10 @@ type ThreadLocal interface {
 	Get() (interface{}, error)
 }
 
-// Goethe a service which runs your routines in threads
+// GoetheI a service which runs your routines in threads
 // that can have things such as threadIds and thread
 // local storage
-type Goethe interface {
+type GoetheI interface {
 	// GoWithArgs takes as a first argument any function and
 	// all the remaining fields are the arguments to that function
 	// it is up to the caller to maintain type safety

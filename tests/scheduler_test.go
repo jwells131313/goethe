@@ -47,7 +47,7 @@ import (
 )
 
 func TestEverySecondForTenSeconds(t *testing.T) {
-	ethe := goethe.GetGoethe()
+	ethe := goethe.GG()
 
 	var count int
 

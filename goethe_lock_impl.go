@@ -45,7 +45,7 @@ import (
 )
 
 type goetheLock struct {
-	parent Goethe
+	parent *Goethe
 
 	goMux sync.Mutex
 	cond  *sync.Cond
@@ -57,7 +57,7 @@ type goetheLock struct {
 	writersWaiting int64
 }
 
-func newReaderWriterLock(pparent Goethe) Lock {
+func newReaderWriterLock(pparent *Goethe) Lock {
 	retVal := &goetheLock{
 		parent:        pparent,
 		holdingWriter: -2,

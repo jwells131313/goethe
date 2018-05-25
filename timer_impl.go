@@ -196,7 +196,7 @@ func (timer *timerData) scheduleNextWakeUp() {
 	timer.sleepy.sleep(until, timer.cond, pNode.next.jobNumber)
 }
 
-func (timer *timerData) invoke(ethe Goethe, job *timerJob) {
+func (timer *timerData) invoke(ethe *Goethe, job *timerJob) {
 	tl, err := ethe.GetThreadLocal(TimerThreadLocal)
 	if err != nil {
 		if job.errors != nil {
