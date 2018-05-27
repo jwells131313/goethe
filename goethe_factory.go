@@ -194,17 +194,6 @@ func (goth *Goethe) NewGoetheLock() Lock {
 	return newReaderWriterLock(goth)
 }
 
-// NewBoundedFunctionQueue returns a function queue with the given capacity
-func (goth *Goethe) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
-	return NewFunctionQueue(capacity)
-}
-
-// NewErrorQueue returns an error queue with the given capacity.  If errors
-// are returned when the ErrorQueue is at capacity the new errors are droppedmin
-func (goth *Goethe) NewErrorQueue(capacity uint32) ErrorQueue {
-	return newBoundedErrorQueue(capacity)
-}
-
 // NewPool creates a new thread pool with the given parameters.  The name is the
 // name of this pool and may not be empty.  It is an error to try to create more than
 // one open pool with the same name at the same time.

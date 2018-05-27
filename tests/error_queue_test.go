@@ -47,9 +47,7 @@ import (
 )
 
 func TestBasicErrorFunctionality(t *testing.T) {
-	ethe := goethe.GetGoethe()
-
-	errorQueue := ethe.NewErrorQueue(10)
+	errorQueue := goethe.NewBoundedErrorQueue(10)
 
 	info, found := errorQueue.Dequeue()
 	if found {
@@ -110,9 +108,7 @@ func TestBasicErrorFunctionality(t *testing.T) {
 }
 
 func TestCapacityWorks(t *testing.T) {
-	ethe := goethe.GetGoethe()
-
-	errorQueue := ethe.NewErrorQueue(10)
+	errorQueue := goethe.NewBoundedErrorQueue(10)
 
 	errorInfo := &dummyErrorInformation{
 		tid: 10,

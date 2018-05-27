@@ -50,9 +50,7 @@ import (
 )
 
 func TestBasicFQFunctionality(t *testing.T) {
-	ethe := goethe.GetGoethe()
-
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	info, err := funcQueue.Dequeue(0)
 	if err == nil {
@@ -123,9 +121,7 @@ func TestBasicFQFunctionality(t *testing.T) {
 }
 
 func TestFQCapacityWorks(t *testing.T) {
-	ethe := goethe.GetGoethe()
-
-	funcQueue := ethe.NewBoundedFunctionQueue(5)
+	funcQueue := goethe.NewBoundedFunctionQueue(5)
 
 	f0 := func() error {
 		return nil
@@ -170,9 +166,7 @@ func TestFQCapacityWorks(t *testing.T) {
 }
 
 func TestFQEmptyQueueBlocks(t *testing.T) {
-	ethe := goethe.GetGoethe()
-
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	current := time.Now()
 
@@ -196,7 +190,7 @@ func TestFQEmptyQueueBlocks(t *testing.T) {
 func TestFQQueueBlocksUntilDataEnqueued(t *testing.T) {
 	ethe := goethe.GetGoethe()
 
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	mux := sync.Mutex{}
 	cond := sync.NewCond(&mux)

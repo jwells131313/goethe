@@ -57,14 +57,14 @@ func useAPool() error {
 	ethe := goethe.GetGoethe()
 
 	finished := make(chan bool)
-	errors := ethe.NewErrorQueue(1000)
+	errors := goethe.NewBoundedErrorQueue(1000)
 
 	ethe.Go(func() {
 		poolInstance := &poolExample{
 			lock: ethe.NewGoetheLock(),
 		}
 
-		queue := ethe.NewBoundedFunctionQueue(1000)
+		queue := goethe.NewBoundedFunctionQueue(1000)
 		pool, err := ethe.NewPool("example", 5, 10, 5*time.Minute, queue, errors)
 		if err != nil {
 			finished <- false

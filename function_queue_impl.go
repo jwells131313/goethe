@@ -59,8 +59,8 @@ type FunctionQueueImpl struct {
 	queue    []*FunctionDescriptor
 }
 
-// NewFunctionQueue creates a new function queue with the given capacity
-func NewFunctionQueue(userCapacity uint32) FunctionQueue {
+// NewBoundedFunctionQueue creates a new function queue with the given capacity
+func NewBoundedFunctionQueue(userCapacity uint32) FunctionQueue {
 	retVal := &FunctionQueueImpl{
 		capacity: userCapacity,
 		queue:    make([]*FunctionDescriptor, 0),

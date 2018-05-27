@@ -96,13 +96,6 @@ type GoetheI interface {
 	// NewGoetheLock Creates a new goethe lock
 	NewGoetheLock() Lock
 
-	// NewBoundedFunctionQueue returns a function queue with the given capacity
-	NewBoundedFunctionQueue(uint32) FunctionQueue
-
-	// NewErrorQueue returns an error queue with the given capacity.  If errors
-	// are returned when the ErrorQueue is at capacity the new errors are dropped
-	NewErrorQueue(uint32) ErrorQueue
-
 	// NewPool creates a new thread pool with the given parameters.  The name is the
 	// name of this pool and may not be empty.  It is an error to try to create more than
 	// one open pool with the same name at the same time.

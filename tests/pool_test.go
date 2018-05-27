@@ -49,7 +49,7 @@ import (
 func TestOneFixedPoolFunctionality(t *testing.T) {
 	ethe := goethe.GetGoethe()
 
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	pool, err := ethe.NewPool("OneOnlyPool", 1, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
@@ -121,7 +121,7 @@ func TestOneFixedPoolFunctionality(t *testing.T) {
 func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
 	ethe := goethe.GetGoethe()
 
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	pool, err := ethe.NewPool("ZeroOnePool", 0, 1, 1*time.Minute, funcQueue, nil)
 	if err != nil {
@@ -188,7 +188,7 @@ func TestZeroToOneFixedPoolFunctionality(t *testing.T) {
 func TestGetMapFunctionality(t *testing.T) {
 	ethe := goethe.GetGoethe()
 
-	funcQueue := ethe.NewBoundedFunctionQueue(10)
+	funcQueue := goethe.NewBoundedFunctionQueue(10)
 
 	poolA, found := ethe.GetPool("Pool A")
 	if found {

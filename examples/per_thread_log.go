@@ -189,7 +189,7 @@ func runner(ch chan bool) error {
 
 	lock := ethe.NewGoetheLock()
 	cond := sync.NewCond(lock)
-	queue := ethe.NewBoundedFunctionQueue(1000)
+	queue := goethe.NewBoundedFunctionQueue(1000)
 
 	var count int32
 

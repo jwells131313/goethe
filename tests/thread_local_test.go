@@ -59,7 +59,7 @@ const (
 func TestThreadLocalStorage(t *testing.T) {
 	ethe := goethe.GetGoethe()
 
-	funcQueue := ethe.NewBoundedFunctionQueue(100)
+	funcQueue := goethe.NewBoundedFunctionQueue(100)
 
 	pool, err := ethe.NewPool("OneOnlyPool", 2, 2, 1*time.Minute, funcQueue, nil)
 	if err != nil {

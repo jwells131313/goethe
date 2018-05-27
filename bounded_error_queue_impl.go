@@ -44,22 +44,26 @@ import (
 	"sync"
 )
 
-type boundedErrorQueue struct {
+// BoundedErrorQueue provides an error queue with a maximum size
+type BoundedErrorQueue struct {
 	mux sync.Mutex
 
 	capacity uint32
 	queue    []ErrorInformation
 }
 
-// newBoundedErrorQueue creates a new error queue with the given capacity
-func newBoundedErrorQueue(userCapacity uint32) ErrorQueue {
-	return &boundedErrorQueue{
+// NewBoundedErrorQueue creates a new error queue with the given capacity
+func NewBoundedErrorQueue(userCapacity uint32) ErrorQueue {
+	return &BoundedErrorQueue{
 		capacity: userCapacity,
 		queue:    make([]ErrorInformation, 0),
 	}
 }
 
-func (errorq *boundedErrorQueue) Enqueue(info ErrorInformation) error {
+// Enqueue adds an error to the error queue.  If the queue is
+// at capacity should return ErrAtCapacity.  All other errors
+// will be ignored
+func (errorq *BoundedErrorQueue) Enqueue(info ErrorInformation) error {
 	if info == nil {
 		return nil
 	}
@@ -76,7 +80,10 @@ func (errorq *boundedErrorQueue) Enqueue(info ErrorInformation) error {
 	return nil
 }
 
-func (errorq *boundedErrorQueue) Dequeue() (ErrorInformation, bool) {
+// Dequeue removes ErrorInformation from the pools
+// error queue.  If there were no errors on the queue
+// the second return value is false
+func (errorq *BoundedErrorQueue) Dequeue() (ErrorInformation, bool) {
 	errorq.mux.Lock()
 	defer errorq.mux.Unlock()
 
@@ -90,13 +97,15 @@ func (errorq *boundedErrorQueue) Dequeue() (ErrorInformation, bool) {
 	return retVal, true
 }
 
-func (errorq *boundedErrorQueue) GetSize() int {
+// GetSize returns the number of items currently in the queue
+func (errorq *BoundedErrorQueue) GetSize() int {
 	errorq.mux.Lock()
 	defer errorq.mux.Unlock()
 
 	return len(errorq.queue)
 }
 
-func (errorq *boundedErrorQueue) IsEmpty() bool {
+// IsEmpty Returns true if this queue is currently empty
+func (errorq *BoundedErrorQueue) IsEmpty() bool {
 	return errorq.GetSize() == 0
 }
