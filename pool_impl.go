@@ -55,7 +55,7 @@ type threadPool struct {
 	idleDecay              time.Duration
 	functionalQueue        FunctionQueue
 	errorQueue             ErrorQueue
-	parent                 *Goethe
+	parent                 *StandardThreadUtilities
 
 	currentThreads int32
 	threadState    map[int64]int
@@ -78,7 +78,7 @@ var (
 	errorInterface = reflect.TypeOf((*error)(nil)).Elem()
 )
 
-func newThreadPool(par *Goethe, name string, min, max int32, idle time.Duration,
+func newThreadPool(par *StandardThreadUtilities, name string, min, max int32, idle time.Duration,
 	fq FunctionQueue, eq ErrorQueue) (Pool, error) {
 	if min < 0 {
 		return nil, fmt.Errorf("minimum thread count less than zero %d", min)

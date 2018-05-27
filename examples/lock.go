@@ -44,8 +44,8 @@ import (
 	"github.com/jwells131313/goethe"
 )
 
-var ethe goethe.GoetheI = goethe.GetGoethe()
-var lock goethe.Lock = ethe.NewGoetheLock()
+var ethe = goethe.GetGoethe()
+var lock = ethe.NewGoetheLock()
 
 func writer1() {
 	lock.WriteLock()

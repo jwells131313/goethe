@@ -41,14 +41,14 @@
 package goethe
 
 type threadLocal struct {
-	parent *Goethe
+	parent *StandardThreadUtilities
 	tid    int64
 	name   string
 	data   interface{}
 }
 
 // newThreadLocal returns a new thread local for a specific thread
-func newThreadLocal(name string, parent *Goethe, tid int64) ThreadLocal {
+func newThreadLocal(name string, parent *StandardThreadUtilities, tid int64) ThreadLocal {
 	return &threadLocal{
 		parent: parent,
 		tid:    tid,

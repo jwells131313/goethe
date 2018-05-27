@@ -65,11 +65,11 @@ type threadLocalsData struct {
 	threadLocals map[string]*threadLocalOperators
 }
 
-// Goethe provides methods for using the goethe threading
+// StandardThreadUtilities provides methods for using the goethe threading
 // system, including timers, pools, recursive locks,
-// and thread pools.  It implements the GoetheI interface
+// and thread pools.  It implements the ThreadUtilities interface
 // which is what the GG and GetGoethe methods return
-type Goethe struct {
+type StandardThreadUtilities struct {
 	tidMux  sync.Mutex
 	lastTid int64
 
@@ -94,7 +94,7 @@ const (
 	timerTid = 9
 )
 
-func newGoethe() *Goethe {
+func newGoethe() *StandardThreadUtilities {
 	pools := &poolData{
 		poolMap: make(map[string]Pool),
 	}
@@ -105,7 +105,7 @@ func newGoethe() *Goethe {
 		threadLocals: make(map[string]*threadLocalOperators),
 	}
 
-	retVal := &Goethe{
+	retVal := &StandardThreadUtilities{
 		lastTid: 9,
 		pools:   pools,
 		timers:  timers,
@@ -116,16 +116,16 @@ func newGoethe() *Goethe {
 }
 
 // GetGoethe returns the systems goethe global
-func GetGoethe() GoetheI {
+func GetGoethe() ThreadUtilities {
 	return GG()
 }
 
 // GG returns the system goethe global implementation, and also means "Good Game"
-func GG() GoetheI {
+func GG() ThreadUtilities {
 	return globalGoethe
 }
 
-func (goth *Goethe) getAndIncrementTid() int64 {
+func (goth *StandardThreadUtilities) getAndIncrementTid() int64 {
 	goth.tidMux.Lock()
 	defer goth.tidMux.Unlock()
 
@@ -139,7 +139,7 @@ func (goth *Goethe) getAndIncrementTid() int64 {
 // If this method detects any discrepancy between the
 // function passed in and the number and/or type or arguments
 // an error is returned.  The thread id is also returned
-func (goth *Goethe) Go(userCall interface{}, args ...interface{}) (int64, error) {
+func (goth *StandardThreadUtilities) Go(userCall interface{}, args ...interface{}) (int64, error) {
 	tid := goth.getAndIncrementTid()
 
 	argArray := make([]interface{}, len(args))
@@ -160,7 +160,7 @@ func (goth *Goethe) Go(userCall interface{}, args ...interface{}) (int64, error)
 // GetThreadID Gets the current threadID.  Returns -1
 // if this is not a goethe thread.  Thread ids start at 10
 // as thread ids 0 through 9 are reserved for future use
-func (goth *Goethe) GetThreadID() int64 {
+func (goth *StandardThreadUtilities) GetThreadID() int64 {
 	stackAsBytes := debug.Stack()
 	stackAsString := string(stackAsBytes)
 
@@ -190,7 +190,7 @@ func (goth *Goethe) GetThreadID() int64 {
 }
 
 // NewGoetheLock Creates a new goethe lock
-func (goth *Goethe) NewGoetheLock() Lock {
+func (goth *StandardThreadUtilities) NewGoetheLock() Lock {
 	return newReaderWriterLock(goth)
 }
 
@@ -210,7 +210,7 @@ func (goth *Goethe) NewGoetheLock() Lock {
 // will be enqueued onto the errorQueue.  It is recommended that the implementation of
 // ErrorQueue have some sort of upper bound.  If a pool with the given name already
 // exists the old pool will be returned along with an ErrPoolAlreadyExists error
-func (goth *Goethe) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
+func (goth *StandardThreadUtilities) NewPool(name string, minThreads int32, maxThreads int32, idleDecayDuration time.Duration,
 	functionQueue FunctionQueue, errorQueue ErrorQueue) (Pool, error) {
 	goth.pools.poolMux.Lock()
 	defer goth.pools.poolMux.Unlock()
@@ -233,7 +233,7 @@ func (goth *Goethe) NewPool(name string, minThreads int32, maxThreads int32, idl
 
 // GetPool returns a non-closed pool with the given name.  If not found second
 // value returned will be false
-func (goth *Goethe) GetPool(name string) (Pool, bool) {
+func (goth *StandardThreadUtilities) GetPool(name string) (Pool, bool) {
 	goth.pools.poolMux.Lock()
 	goth.pools.poolMux.Unlock()
 
@@ -247,7 +247,7 @@ func (goth *Goethe) GetPool(name string) (Pool, bool) {
 // thread, including non-goethe threads.  Both the initializer and
 // destroyer methods may be nil.  Any errors thrown by these function
 // will be put on the error queue
-func (goth *Goethe) EstablishThreadLocal(name string, initializer func(ThreadLocal) error,
+func (goth *StandardThreadUtilities) EstablishThreadLocal(name string, initializer func(ThreadLocal) error,
 	destroyer func(ThreadLocal) error) error {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
@@ -275,7 +275,7 @@ func (goth *Goethe) EstablishThreadLocal(name string, initializer func(ThreadLoc
 // If EstablishThreadLocal with the given name has not been called prior to
 // this function call then a ThreadLocal with no initializer/destroyer
 // methods will be used
-func (goth *Goethe) GetThreadLocal(name string) (ThreadLocal, error) {
+func (goth *StandardThreadUtilities) GetThreadLocal(name string) (ThreadLocal, error) {
 	tid := goth.GetThreadID()
 	if tid < int64(0) {
 		return nil, ErrNotGoetheThread
@@ -310,7 +310,7 @@ func (goth *Goethe) GetThreadLocal(name string) (ThreadLocal, error) {
 	return actual, nil
 }
 
-func (goth *Goethe) startTimer() {
+func (goth *StandardThreadUtilities) startTimer() {
 	goth.timers.timerMux.Lock()
 	defer goth.timers.timerMux.Unlock()
 
@@ -337,7 +337,7 @@ func (goth *Goethe) startTimer() {
 // and will then be scheduled at multiples of the period.  An optional
 // error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
-func (goth *Goethe) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
+func (goth *StandardThreadUtilities) ScheduleAtFixedRate(initialDelay time.Duration, period time.Duration,
 	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
@@ -363,7 +363,7 @@ func (goth *Goethe) ScheduleAtFixedRate(initialDelay time.Duration, period time.
 // The first run will happen only after initialDelay
 // An optional error queue can be given to collect all errors thrown from the method.
 // It is the responsibility of the caller to drain the error queue
-func (goth *Goethe) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
+func (goth *StandardThreadUtilities) ScheduleWithFixedDelay(initialDelay time.Duration, delay time.Duration,
 	errorQueue ErrorQueue, method interface{}, args ...interface{}) (Timer, error) {
 	goth.startTimer()
 
@@ -384,7 +384,7 @@ func (goth *Goethe) ScheduleWithFixedDelay(initialDelay time.Duration, delay tim
 	return goth.timers.timer.addJob(initialDelay, delay, errorQueue, method, arguments, false)
 }
 
-func (goth *Goethe) getOperatorsByName(name string) (*threadLocalOperators, bool) {
+func (goth *StandardThreadUtilities) getOperatorsByName(name string) (*threadLocalOperators, bool) {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
 
@@ -409,7 +409,7 @@ func removeThreadLocal(operators *threadLocalOperators, tid int64) {
 	delete(operators.actuals, tid)
 }
 
-func (goth *Goethe) removeAllActuals(tid int64) {
+func (goth *StandardThreadUtilities) removeAllActuals(tid int64) {
 	goth.locals.localsMux.Lock()
 	goth.locals.localsMux.Unlock()
 
@@ -418,7 +418,7 @@ func (goth *Goethe) removeAllActuals(tid int64) {
 	}
 }
 
-func (goth *Goethe) removePool(name string) {
+func (goth *StandardThreadUtilities) removePool(name string) {
 	goth.pools.poolMux.Lock()
 	goth.pools.poolMux.Unlock()
 
