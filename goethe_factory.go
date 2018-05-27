@@ -196,7 +196,7 @@ func (goth *Goethe) NewGoetheLock() Lock {
 
 // NewBoundedFunctionQueue returns a function queue with the given capacity
 func (goth *Goethe) NewBoundedFunctionQueue(capacity uint32) FunctionQueue {
-	return newFunctionQueue(capacity)
+	return NewFunctionQueue(capacity)
 }
 
 // NewErrorQueue returns an error queue with the given capacity.  If errors

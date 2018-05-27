@@ -45,7 +45,12 @@ import (
 	"time"
 )
 
-type functionErrorQueue struct {
+// FunctionQueueImpl is an implementation of a function queue
+// that implements the FunctionQueue interface.  It has a
+// bounded capacity and can take a callback function that
+// is invoked any time an operation happens that changes
+// the size of the queue
+type FunctionQueueImpl struct {
 	mux     sync.Mutex
 	cond    *sync.Cond
 	changer func(queue FunctionQueue)
@@ -54,9 +59,9 @@ type functionErrorQueue struct {
 	queue    []*FunctionDescriptor
 }
 
-// newFunctionQueue creates a new function queue with the given capacity
-func newFunctionQueue(userCapacity uint32) FunctionQueue {
-	retVal := &functionErrorQueue{
+// NewFunctionQueue creates a new function queue with the given capacity
+func NewFunctionQueue(userCapacity uint32) FunctionQueue {
+	retVal := &FunctionQueueImpl{
 		capacity: userCapacity,
 		queue:    make([]*FunctionDescriptor, 0),
 	}
@@ -66,7 +71,9 @@ func newFunctionQueue(userCapacity uint32) FunctionQueue {
 	return retVal
 }
 
-func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{}) error {
+// Enqueue queues a function to be run in the pool.  Returns
+// ErrAtCapacity if the queue is currently at capacity
+func (fq *FunctionQueueImpl) Enqueue(userCall interface{}, args ...interface{}) error {
 	if userCall == nil {
 		return nil
 	}
@@ -97,7 +104,10 @@ func (fq *functionErrorQueue) Enqueue(userCall interface{}, args ...interface{})
 	return nil
 }
 
-func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*FunctionDescriptor, error) {
+// Dequeue returns a function to be run, waiting the given
+// duration.  If there is no message within the given
+// duration return the error returned will be ErrEmptyQueue
+func (fq *FunctionQueueImpl) Dequeue(duration time.Duration) (*FunctionDescriptor, error) {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 
@@ -130,22 +140,28 @@ func (fq *functionErrorQueue) Dequeue(duration time.Duration) (*FunctionDescript
 	return retVal, nil
 }
 
-func (fq *functionErrorQueue) GetCapacity() uint32 {
+// GetCapacity gets the capacity of this queue
+func (fq *FunctionQueueImpl) GetCapacity() uint32 {
 	return fq.capacity
 }
 
-func (fq *functionErrorQueue) GetSize() int {
+// GetSize returns the number of items currently in the queue
+func (fq *FunctionQueueImpl) GetSize() int {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 
 	return len(fq.queue)
 }
 
-func (fq *functionErrorQueue) IsEmpty() bool {
+// IsEmpty Returns true if this queue is currently empty
+func (fq *FunctionQueueImpl) IsEmpty() bool {
 	return fq.GetSize() <= 0
 }
 
-func (fq *functionErrorQueue) SetStateChangeCallback(ch func(FunctionQueue)) {
+// SetStateChangeCallback sets a function to be
+// called whenever an enqueue or dequeue changes
+// the size of queue
+func (fq *FunctionQueueImpl) SetStateChangeCallback(ch func(FunctionQueue)) {
 	fq.mux.Lock()
 	defer fq.mux.Unlock()
 
