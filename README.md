@@ -338,7 +338,8 @@ the type returned by the initializer.  Each thread has its own copy of the type 
 will not interfere with each other.  When the thread goes away the destructor for all named
 thread local storage associated with that thread will be called.
 
-Under construction: need an example of the use of thread local storage
+The example in the Timers section below uses a thread local to get the
+Timer object from inside the thread.
 
 ### Timers
 
