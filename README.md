@@ -49,7 +49,7 @@ and in thread pools.
 This package maintains one global goethe implementation which can be gotten using the
 github.com/jwells131313/goethe.GetGoethe() method.
 
-NOTE:  The current version of this API is 0.1.  This means that the API has
+NOTE:  The current version of this API is 0.9.1.  This means that the API has
 not settled completely and may change in future revisions.  Once the goethe
 team has decided the API is good as it is we will make the 1.0 version which
 will have some backward compatibility guarantees.  In the meantime, if you
@@ -63,8 +63,8 @@ have questions or comments please open issues.  Thank you.
 
 ### ThreadID
 
-Inside a goethe thread you can use the utilities.GetGoethe() method to get the implementation of Goethe and
-use that to get the ID of the thread in which the code is currently running:
+Use the GetGoethe() or GG() method to get an implementation of ThreadUtilities and use that to
+get the ID of the thread in which the code is currently running:
 
 ```go
 package foo
@@ -92,7 +92,7 @@ func basic() {
 }
 ```
 
-You can also use the Go function for a method that takes arguments.  The following
+You can also use the ThreadUtilities.Go function for a method that takes arguments.  The following
 example passes the parameters into the function.
 
 ```go
@@ -139,8 +139,8 @@ import (
 	"github.com/jwells131313/goethe"
 )
 
-var ethe goethe.GoetheI = goethe.GG()
-var lock goethe.Lock = ethe.NewGoetheLock()
+var ethe = goethe.GG()
+var lock = ethe.NewGoetheLock()
 
 func writer1() {
 	lock.WriteLock()
@@ -171,8 +171,8 @@ In order to create a thread pool you specify the min threads in the the pool, th
 in the pool and the decay time, which is the time a thread will be idle before being released
 (if the number of threads is greater than the min).
 
-You also give the pool an implementation of a FunctionQueue.  You can also get a default
-implementation of FunctionQueue from the goethe service.  However any implementation of
+You also give the pool an implementation of a FunctionQueue.  You can get a default
+implementation of FunctionQueue from the goethe package.  However any implementation of
 FunctionQueue will work, which allows you to use priority queues or other queue implementations.
 Once a queue is associated with a pool you use the queue Enqueue API to give jobs to the thread pool.
 
@@ -181,7 +181,7 @@ be placed on the ErrorQueue.  It is up to the application to check and drain the
 errors.
 
 The following example uses recursive read/write locks, an error queue and a functional queue along
-with a pool.  The actual work done in the randomWork method is just sleeping anywhere from 1 to 99
+with a pool.  The work done in the randomWork method is just sleeping anywhere from 1 to 99
 milliseconds.  However, if the number of milliseconds to sleep is divisible by 13 then the randomWork
 method will return with an error.  If the number of milliseconds to sleep is divisible by seven
 then randomWork will exit with no error but will not put new work on the queue.  Otherwise random
@@ -331,7 +331,7 @@ critical sections were harmed in the making of this example!
 
 ### Thread Local Storage
 
-Goethe threads can take advantage of named thread local storage.  Thread local storage is first
+Goethe threads can take advantage of named thread local storage.  Thread local storage can be first
 established by giving it a name, an initializer function and a destroyer function.  Then
 in your goethe threads you can call GetThreadLocal with the name of your thread local and get
 the type returned by the initializer.  Each thread has its own copy of the type so two threads
@@ -348,7 +348,7 @@ with fixed delay and one with fixed rate.
 A fixed delay timer will start the next timer once the user code has run to completion.  So
 long running user code will cause the timer to not be invoked again until the user code has
 completed and the delay period has passed again.  This timer is started with the
-Goethe.ScheduleWithFixedDelay method
+ThreadUtilities.ScheduleWithFixedDelay method
 
 A fixed rate timer will run every multiple of the given period, whether or not the user code
 from previous runs of the timer have completed (on different Goethe threads).  This
