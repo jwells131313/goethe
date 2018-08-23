@@ -42,37 +42,41 @@ package main
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/cache"
+	"math/rand"
 	"time"
 )
 
-func main() {
-	goether := goethe.GetGoethe()
+func cacheExample() {
+	rand := rand.New(rand.NewSource(13))
 
-	fmt.Println("Running counting writer locks...")
-	goether.Go(writer1)
+	thinkCache, _ := cache.NewCache(newThinker(rand), nil)
 
-	fmt.Println("Running no argument thread example...")
-	basic()
+	// First time it'll think for 0 to 99 milliseconds
+	val, _ := thinkCache.Compute(13)
+	fmt.Printf("Cache returned %v", val)
 
-	fmt.Println("Running method with arguments thread example...")
-	basicWithArgs()
+	// Second time it won't think, it'll take the value from the cache
+	val, _ = thinkCache.Compute(13)
+	fmt.Printf("Cache returned %v the second time asking for same value", val)
+}
 
-	fmt.Println("Running a thread pool...")
-	useAPool()
+type randomComputable struct {
+	generator *rand.Rand
+}
 
-	fmt.Println("Getting values from a cache!")
-	cacheExample()
-
-	fmt.Println("Run some per-thread loggers...")
-	err := runSomeLoggingThreads()
-	if err != nil {
-		fmt.Println(err.Error())
+func newThinker(gen *rand.Rand) cache.Computable {
+	return &randomComputable{
+		generator: gen,
 	}
+}
 
-	RunClockForOneHour()
+func (rc *randomComputable) Compute(key interface{}) (interface{}, error) {
+	thinkTime := rc.generator.Int() % 100
+	thinkDuration := time.Millisecond * time.Duration(thinkTime)
 
-	time.Sleep(10 * time.Minute)
+	time.Sleep(thinkDuration)
 
-	fmt.Println("have a nice day")
+	// Sort of a silly computation!
+	return key, nil
 }

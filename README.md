@@ -42,7 +42,7 @@ Threading utilities for GO
 
 ## Usage
 
-This package provides several useful threading and locking utilities for use in golang.  In
+This package provides several useful threading, locking and caching utilities for use in golang.  In
 particular goethe (pronounced ger-tay) threads have thread-ids which can be useful for logging
 and in thread pools.
 
@@ -56,10 +56,11 @@ will have some backward compatibility guarantees.  In the meantime, if you
 have questions or comments please open issues.  Thank you.
 
 1. [ThreadID](#ThreadID)
-2. [Recursive Locks](#recursive-locks)
-3. [Thread Pools](#thread-pools)
-4. [Thread Local Storage](#thread-local-storage)
-5. [Timers](#timers)
+2. [Cache](#In-Memory-Computable-Cache)
+3. [Recursive Locks](#recursive-locks)
+4. [Thread Pools](#thread-pools)
+5. [Thread Local Storage](#thread-local-storage)
+6. [Timers](#timers)
 
 ### ThreadID
 
@@ -116,6 +117,50 @@ func basicWithArgs() {
 
 	sum := <-channel
 	fmt.Println("the sum in my thread was ", sum)
+}
+```
+### In-Memory Computable Cache
+
+The cache package contains methods to create an in-memory computable cache.  A computable cache
+is a cache where the values can be computed directly from the keys.  A computable cache is useful when the
+computation to generate the values are resource intensive and can be re-used when the keys are the same.
+This cache can handle nested calls to the computation method, and will detect if there are nested cycles.
+
+In this example the cache is used to avoid long think times when calculating the value for the given key:
+
+```go
+func cacheExample() {
+	rand := rand.New(rand.NewSource(13))
+
+	thinkCache, _ := cache.NewCache(newThinker(rand), nil)
+
+	// First time it'll think for 0 to 99 milliseconds
+	val, _ := thinkCache.Compute(13)
+	fmt.Printf("Cache returned %v", val)
+
+	// Second time it won't think, it'll take the value from the cache
+	val, _ = thinkCache.Compute(13)
+	fmt.Printf("Cache returned %v the second time asking for same value", val)
+}
+
+type randomComputable struct {
+	generator *rand.Rand
+}
+
+func newThinker(gen *rand.Rand) cache.Computable {
+	return &randomComputable{
+		generator: gen,
+	}
+}
+
+func (rc *randomComputable) Compute(key interface{}) (interface{}, error) {
+	thinkTime := rc.generator.Int() % 100
+	thinkDuration := time.Millisecond * time.Duration(thinkTime)
+
+	time.Sleep(thinkDuration)
+
+	// Sort of a silly computation!
+	return key, nil
 }
 ```
 
