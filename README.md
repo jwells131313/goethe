@@ -55,7 +55,7 @@ team has decided the API is good as it is we will make the 1.0 version which
 will have some backward compatibility guarantees.  In the meantime, if you
 have questions or comments please open issues.  Thank you.
 
-1. [ThreadID](#ThreadID)
+1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
 3. [Recursive Locks](#recursive-locks)
 4. [Thread Pools](#thread-pools)
