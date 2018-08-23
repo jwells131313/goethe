@@ -56,7 +56,7 @@ will have some backward compatibility guarantees.  In the meantime, if you
 have questions or comments please open issues.  Thank you.
 
 1. [ThreadID](#ThreadID)
-2. [Cache](#In-Memory-Computable-Cache)
+2. [Cache](#in-memory-computable-cache)
 3. [Recursive Locks](#recursive-locks)
 4. [Thread Pools](#thread-pools)
 5. [Thread Local Storage](#thread-local-storage)
