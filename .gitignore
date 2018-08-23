@@ -19,3 +19,5 @@
 
 # My wercker stuff
 .wercker/
+vendor/
+
