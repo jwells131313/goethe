@@ -83,7 +83,7 @@ func init() {
 // thread safe.  If two threads try to create the same value the value will still
 // only be computed once, and the thread that loses the race will use the cached
 // value
-func NewCache(calculator Computable, cycleHandler CycleHandler) (Computable, error) {
+func NewCache(calculator Computable, cycleHandler CycleHandler) (Cache, error) {
 	return &cacheData{
 		lock:         gd.NewGoetheLock(),
 		cache:        make(map[interface{}]interface{}),
@@ -105,6 +105,14 @@ func (cache *cacheData) Compute(key interface{}) (interface{}, error) {
 	}
 
 	return cache.internalCompute(key)
+}
+
+func (cache *cacheData) GetCalculator() Computable {
+	return cache.calculater
+}
+
+func (cache *cacheData) GetCycleHandler() CycleHandler {
+	return cache.cycleHandler
 }
 
 func (cache *cacheData) channelInternalCompute(key interface{}, reply chan (*onGoetheReply)) {

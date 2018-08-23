@@ -46,8 +46,12 @@ import (
 	"testing"
 )
 
+const (
+	expectedError = "Expected Error"
+)
+
 func TestBasicCache(t *testing.T) {
-	c, err := NewCache(NewTestEchoCalculator(), nil)
+	c, err := NewCache(newTestEchoCalculator(), nil)
 	assert.Nil(t, err, "no new cache")
 
 	reply, err := getStringValue(c, "hi")
@@ -67,6 +71,52 @@ func TestBasicCache(t *testing.T) {
 	assert.Equal(t, reply, "hi", "echo cache value is not the same")
 }
 
+func TestNestedCache(t *testing.T) {
+	nester := newTestNestedCalculator()
+	cache, err := NewCache(nester, nil)
+	assert.Nil(t, err, "could not create cache")
+
+	nester.cache = cache
+
+	values := []int{1, 2, 3, 4, 5, 6}
+	for _, value := range values {
+		reply, err := cache.Compute(value)
+		assert.Nil(t, err, "could not get value")
+		assert.Equal(t, reply, value, "cache returned incorrect value")
+	}
+}
+
+func TestCycleCacheWithRemediator(t *testing.T) {
+	called := false
+
+	remediator := func(in interface{}) error {
+		called = true
+		return fmt.Errorf(expectedError)
+	}
+
+	cycler := newTestCyclicCalculator()
+	cache, err := NewCache(cycler, remediator)
+	assert.Nil(t, err, "could not create cache")
+
+	cycler.cache = cache
+
+	value, err := cache.Compute(1)
+	assert.NotNil(t, err, "Did not get an expected error, instead got %v", value)
+	assert.Equal(t, expectedError, err.Error(), "Did not get expected error from remediator")
+	assert.True(t, called, "The remediator was not called")
+}
+
+func TestCycleCacheWithoutRemediator(t *testing.T) {
+	cycler := newTestCyclicCalculator()
+	cache, err := NewCache(cycler, nil)
+	assert.Nil(t, err, "could not create cache")
+
+	cycler.cache = cache
+
+	value, err := cache.Compute(1)
+	assert.NotNil(t, err, "Did not get an expected error, instead got %v", value)
+}
+
 func getStringValue(c Computable, in string) (string, error) {
 	raw, err := c.Compute(in)
 	if err != nil {
@@ -84,10 +134,77 @@ func getStringValue(c Computable, in string) (string, error) {
 type testEchoCalculator struct {
 }
 
-func NewTestEchoCalculator() Computable {
+func newTestEchoCalculator() Computable {
 	return &testEchoCalculator{}
 }
 
 func (echo *testEchoCalculator) Compute(key interface{}) (interface{}, error) {
 	return key, nil
+}
+
+type testNestedCalculator struct {
+	cache Computable
+}
+
+func newTestNestedCalculator() *testNestedCalculator {
+	return &testNestedCalculator{}
+}
+
+func (nest *testNestedCalculator) Compute(in interface{}) (interface{}, error) {
+	key, err := itoi(in)
+	if err != nil {
+		return nil, err
+	}
+
+	if key < 5 {
+		nextKey := key + 1
+		nest.cache.Compute(nextKey)
+	}
+
+	return key, nil
+}
+
+type testCyclicCalculator struct {
+	cache Computable
+}
+
+func newTestCyclicCalculator() *testCyclicCalculator {
+	return &testCyclicCalculator{}
+}
+
+func (cycle *testCyclicCalculator) Compute(in interface{}) (interface{}, error) {
+	key, err := itoi(in)
+	if err != nil {
+		return nil, err
+	}
+
+	if key < 5 {
+		nextKey := key + 1
+		_, err = cycle.cache.Compute(nextKey)
+		if err != nil {
+			return nil, err
+		}
+	} else if key >= 5 {
+		// So if we start at 1, we should get a cycle
+		_, err = cycle.cache.Compute(1)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return key, nil
+
+}
+
+func itoi(in interface{}) (int, error) {
+	if in == nil {
+		return -1, fmt.Errorf("incoming integer was nil")
+	}
+
+	retVal, ok := in.(int)
+	if !ok {
+		return -1, fmt.Errorf("incoming integer was not an integer %v", in)
+	}
+
+	return retVal, nil
 }

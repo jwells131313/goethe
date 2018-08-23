@@ -55,3 +55,14 @@ type Computable interface {
 // a cycle has been detected in a computation.  The incoming interface
 // is the key that had the cycle
 type CycleHandler func(interface{}) error
+
+// Cache A basic cache that has a calculator and a cycle handler
+// and returns new values with the Compute method
+type Cache interface {
+	// Computable The methods to call to get the value given a key
+	Computable
+	// GetCalculator The calculator associated with this cache
+	GetCalculator() Computable
+	// GetCycleHandler The cycle handler associated with this cache (may be nil)
+	GetCycleHandler() CycleHandler
+}
