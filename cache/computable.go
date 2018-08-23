@@ -51,4 +51,7 @@ type Computable interface {
 	Compute(key interface{}) (interface{}, error)
 }
 
+// CycleHandler is a function that handles remediation in the case where
+// a cycle has been detected in a computation.  The incoming interface
+// is the key that had the cycle
 type CycleHandler func(interface{}) error

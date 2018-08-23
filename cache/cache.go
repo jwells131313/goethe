@@ -73,6 +73,16 @@ func init() {
 	}, nil)
 }
 
+// NewCache creates a cache of key/value pairs where the value can be computed
+// directly from the key.  This is a useful cache if the computation of the value
+// is difficult or time-consuming in some way and your code would prefer that it
+// happens only once.  The computation of the value may involve computing other
+// values, in which case cycles might occur.  In these cases you can provide a
+// CycleHandler to do whatever remediation is necessary.  Otherwise if cycleHandler
+// is nil an error will be thrown when a cycle has been detected.  This method is
+// thread safe.  If two threads try to create the same value the value will still
+// only be computed once, and the thread that loses the race will use the cached
+// value
 func NewCache(calculator Computable, cycleHandler CycleHandler) (Computable, error) {
 	return &cacheData{
 		lock:         gd.NewGoetheLock(),
