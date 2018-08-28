@@ -65,4 +65,11 @@ type Cache interface {
 	GetCalculator() Computable
 	// GetCycleHandler The cycle handler associated with this cache (may be nil)
 	GetCycleHandler() CycleHandler
+	// HasKey returns true if there is a value for the given key, false otherwise.  It does
+	// not calculate the value of the key if the value is not found
+	HasKey(key interface{}) bool
+	// Clear removes all key/value pairs from the cache
+	Clear()
+	// Remove removes all values for which the removal function returns true
+	Remove(func(key interface{}) bool)
 }

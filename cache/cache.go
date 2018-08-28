@@ -115,6 +115,97 @@ func (cache *cacheData) GetCycleHandler() CycleHandler {
 	return cache.cycleHandler
 }
 
+func (cache *cacheData) HasKey(key interface{}) bool {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cache.channelHasKey, key, replyChan)
+
+		reply := <-replyChan
+
+		return reply
+	}
+
+	return cache.internalHasKey(key)
+}
+
+func (cache *cacheData) channelHasKey(key interface{}, retChan chan bool) {
+	ret := cache.internalHasKey(key)
+
+	retChan <- ret
+}
+
+func (cache *cacheData) internalHasKey(key interface{}) bool {
+	cache.lock.ReadLock()
+	defer cache.lock.ReadUnlock()
+
+	_, found := cache.cache[key]
+
+	return found
+}
+
+func (cache *cacheData) Clear() {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cache.channelClear, replyChan)
+
+		<-replyChan
+
+		return
+	}
+
+	cache.internalClear()
+}
+
+func (cache *cacheData) channelClear(retChan chan bool) {
+	cache.internalClear()
+
+	retChan <- true
+}
+
+func (cache *cacheData) internalClear() {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	cache.cache = nil
+	cache.cache = make(map[interface{}]interface{})
+}
+
+func (cache *cacheData) Remove(removalFunc func(key interface{}) bool) {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cache.channelRemove, removalFunc, replyChan)
+
+		<-replyChan
+
+		return
+	}
+
+	cache.internalRemove(removalFunc)
+}
+
+func (cache *cacheData) channelRemove(removalFunc func(key interface{}) bool, retChan chan bool) {
+	cache.internalRemove(removalFunc)
+
+	retChan <- true
+}
+
+func (cache *cacheData) internalRemove(removalFunc func(key interface{}) bool) {
+	cache.lock.Lock()
+	defer cache.lock.Unlock()
+
+	for key, _ := range cache.cache {
+		if removalFunc(key) {
+			delete(cache.cache, key)
+		}
+	}
+}
+
 func (cache *cacheData) channelInternalCompute(key interface{}, reply chan (*onGoetheReply)) {
 	value, err := cache.internalCompute(key)
 

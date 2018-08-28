@@ -71,6 +71,45 @@ func TestBasicCache(t *testing.T) {
 	assert.Equal(t, reply, "hi", "echo cache value is not the same")
 }
 
+func TestClear(t *testing.T) {
+	c, err := NewCache(newTestEchoCalculator(), nil)
+	assert.Nil(t, err, "no new cache")
+
+	c.Compute("hi")
+	assert.True(t, c.HasKey("hi"), "should have the hi value")
+	assert.False(t, c.HasKey("there"), "should not have the there value")
+
+	c.Clear()
+	assert.False(t, c.HasKey("hi"), "should not have the hi value after clear")
+	assert.False(t, c.HasKey("there"), "should not have the there value after clear")
+}
+
+func TestRemove(t *testing.T) {
+	c, err := NewCache(newTestEchoCalculator(), nil)
+	assert.Nil(t, err, "no new cache")
+
+	c.Compute("hi")
+	c.Compute("there")
+	c.Compute("sailor")
+
+	assert.True(t, c.HasKey("hi"), "should have the hi value")
+	assert.True(t, c.HasKey("there"), "should have the there value")
+	assert.True(t, c.HasKey("sailor"), "should have the sailor value")
+
+	c.Remove(func(key interface{}) bool {
+		if "there" == key || "sailor" == key {
+			return true
+		}
+
+		return false
+	})
+
+	assert.True(t, c.HasKey("hi"), "should have the hi value")
+	assert.False(t, c.HasKey("there"), "should not have the there value")
+	assert.False(t, c.HasKey("sailor"), "should not have the sailor value")
+
+}
+
 func TestNestedCache(t *testing.T) {
 	nester := newTestNestedCalculator()
 	cache, err := NewCache(nester, nil)
