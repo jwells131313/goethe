@@ -92,6 +92,25 @@ func NewCache(calculator Computable, cycleHandler CycleHandler) (Cache, error) {
 	}, nil
 }
 
+// NewComputeFunctionCache creates a compute-function in-memory cache where the values
+// are only ever instantiated once.  Values are retrieved from the cache on subsequent
+// lookups
+func NewComputeFunctionCache(calculator func(key interface{}) (interface{}, error)) (Cache, error) {
+	calc := &basicComputer{
+		calcFunc: calculator,
+	}
+
+	return NewCache(calc, nil)
+}
+
+type basicComputer struct {
+	calcFunc func(key interface{}) (interface{}, error)
+}
+
+func (bc *basicComputer) Compute(key interface{}) (interface{}, error) {
+	return bc.calcFunc(key)
+}
+
 func (cache *cacheData) Compute(key interface{}) (interface{}, error) {
 	tid := gd.GetThreadID()
 	if tid < 0 {
@@ -265,4 +284,32 @@ func (cache *cacheData) internalCompute(key interface{}) (interface{}, error) {
 	cache.cache[key] = value
 
 	return value, nil
+}
+
+func (cache *cacheData) Size() int {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan int)
+
+		gd.Go(cache.channelSize, replyChan)
+
+		retVal := <-replyChan
+
+		return retVal
+	}
+
+	return cache.internalSize()
+}
+
+func (cache *cacheData) channelSize(retChan chan int) {
+	retVal := cache.internalSize()
+
+	retChan <- retVal
+}
+
+func (cache *cacheData) internalSize() int {
+	cache.lock.ReadLock()
+	defer cache.lock.ReadUnlock()
+
+	return len(cache.cache)
 }

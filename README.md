@@ -123,8 +123,7 @@ func basicWithArgs() {
 
 The cache package contains methods to create an in-memory computable cache.  A computable cache
 is a cache where the values can be computed directly from the keys.  A computable cache is useful when the
-computation to generate the values are resource intensive and can be re-used when the keys are the same.
-This cache can handle nested calls to the computation method, and will detect if there are nested cycles.
+computation to generate the values are resource intensive and can be re-used when the key is the same.
 
 In this example the cache is used to avoid long think times when calculating the value for the given key:
 
@@ -132,7 +131,15 @@ In this example the cache is used to avoid long think times when calculating the
 func cacheExample() {
 	rand := rand.New(rand.NewSource(13))
 
-	thinkCache, _ := cache.NewCache(newThinker(rand), nil)
+	thinkCache, _ := cache.NewComputeFunctionCache(func(key interface{}) (interface{}, error) {
+		thinkTime := rand.Int() % 100
+		thinkDuration := time.Millisecond * time.Duration(thinkTime)
+
+		time.Sleep(thinkDuration)
+
+		// Sort of a silly computation!
+		return key, nil
+	})
 
 	// First time it'll think for 0 to 99 milliseconds
 	val, _ := thinkCache.Compute(13)
@@ -141,26 +148,6 @@ func cacheExample() {
 	// Second time it won't think, it'll take the value from the cache
 	val, _ = thinkCache.Compute(13)
 	fmt.Printf("Cache returned %v the second time asking for same value", val)
-}
-
-type randomComputable struct {
-	generator *rand.Rand
-}
-
-func newThinker(gen *rand.Rand) cache.Computable {
-	return &randomComputable{
-		generator: gen,
-	}
-}
-
-func (rc *randomComputable) Compute(key interface{}) (interface{}, error) {
-	thinkTime := rc.generator.Int() % 100
-	thinkDuration := time.Millisecond * time.Duration(thinkTime)
-
-	time.Sleep(thinkDuration)
-
-	// Sort of a silly computation!
-	return key, nil
 }
 ```
 

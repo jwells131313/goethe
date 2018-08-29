@@ -50,7 +50,16 @@ import (
 func cacheExample() {
 	rand := rand.New(rand.NewSource(13))
 
-	thinkCache, _ := cache.NewCache(newThinker(rand), nil)
+	thinkCache, _ := cache.NewComputeFunctionCache(func(key interface{}) (interface{}, error) {
+		thinkTime := rand.Int() % 100
+		thinkDuration := time.Millisecond * time.Duration(thinkTime)
+
+		time.Sleep(thinkDuration)
+
+		// Sort of a silly computation!
+		return key, nil
+
+	})
 
 	// First time it'll think for 0 to 99 milliseconds
 	val, _ := thinkCache.Compute(13)
@@ -59,24 +68,4 @@ func cacheExample() {
 	// Second time it won't think, it'll take the value from the cache
 	val, _ = thinkCache.Compute(13)
 	fmt.Printf("Cache returned %v the second time asking for same value", val)
-}
-
-type randomComputable struct {
-	generator *rand.Rand
-}
-
-func newThinker(gen *rand.Rand) cache.Computable {
-	return &randomComputable{
-		generator: gen,
-	}
-}
-
-func (rc *randomComputable) Compute(key interface{}) (interface{}, error) {
-	thinkTime := rc.generator.Int() % 100
-	thinkDuration := time.Millisecond * time.Duration(thinkTime)
-
-	time.Sleep(thinkDuration)
-
-	// Sort of a silly computation!
-	return key, nil
 }

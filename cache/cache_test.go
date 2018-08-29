@@ -78,14 +78,19 @@ func TestClear(t *testing.T) {
 	c.Compute("hi")
 	assert.True(t, c.HasKey("hi"), "should have the hi value")
 	assert.False(t, c.HasKey("there"), "should not have the there value")
+	assert.Equal(t, 1, c.Size(), "Size should be one")
 
 	c.Clear()
 	assert.False(t, c.HasKey("hi"), "should not have the hi value after clear")
 	assert.False(t, c.HasKey("there"), "should not have the there value after clear")
+	assert.Equal(t, 0, c.Size(), "should be zero size after clear")
 }
 
 func TestRemove(t *testing.T) {
-	c, err := NewCache(newTestEchoCalculator(), nil)
+	c, err := NewComputeFunctionCache(func(key interface{}) (interface{}, error) {
+		return key, nil
+	})
+
 	assert.Nil(t, err, "no new cache")
 
 	c.Compute("hi")
@@ -95,6 +100,7 @@ func TestRemove(t *testing.T) {
 	assert.True(t, c.HasKey("hi"), "should have the hi value")
 	assert.True(t, c.HasKey("there"), "should have the there value")
 	assert.True(t, c.HasKey("sailor"), "should have the sailor value")
+	assert.Equal(t, 3, c.Size(), "size should be three prior to remove")
 
 	c.Remove(func(key interface{}) bool {
 		if "there" == key || "sailor" == key {
@@ -107,6 +113,7 @@ func TestRemove(t *testing.T) {
 	assert.True(t, c.HasKey("hi"), "should have the hi value")
 	assert.False(t, c.HasKey("there"), "should not have the there value")
 	assert.False(t, c.HasKey("sailor"), "should not have the sailor value")
+	assert.Equal(t, 1, c.Size(), "should be one after two elements removed")
 
 }
 

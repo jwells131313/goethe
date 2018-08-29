@@ -72,4 +72,6 @@ type Cache interface {
 	Clear()
 	// Remove removes all values for which the removal function returns true
 	Remove(func(key interface{}) bool)
+	// Size returns the number of key/value pairs in the cache currently
+	Size() int
 }
