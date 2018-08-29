@@ -121,6 +121,8 @@ func basicWithArgs() {
 ```
 ### In-Memory Computable Cache
 
+[![GoDoc](https://godoc.org/github.com/jwells131313/goethe/cache?status.svg)](https://godoc.org/github.com/jwells131313/goethe/cache)
+
 The cache package contains methods to create an in-memory computable cache.  A computable cache
 is a cache where the values can be computed directly from the keys.  A computable cache is useful when the
 computation to generate the values are resource intensive and can be re-used when the key is the same.
