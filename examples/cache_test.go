@@ -41,33 +41,10 @@
 package main
 
 import (
-	"fmt"
-	"github.com/jwells131313/goethe/cache"
-	"time"
+	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
-func cacheExample() bool {
-	thinkCache, _ := cache.NewComputeFunctionCache(func(key interface{}) (interface{}, error) {
-		// lemme think for a second
-		time.Sleep(1 * time.Second)
-
-		// Sort of a silly computation!
-		return key, nil
-
-	})
-
-	// First time it'll think for a second while computing the value
-	nowTime := time.Now()
-	val, _ := thinkCache.Compute(13)
-	elapsedTime := time.Now().Sub(nowTime)
-	fmt.Printf("Cache returned %v after %v\n", val, elapsedTime)
-
-	// Second time it won't think, it'll take the value from the cache
-	nowTime = time.Now()
-	val, _ = thinkCache.Compute(13)
-	elapsedTime = time.Now().Sub(nowTime)
-
-	fmt.Printf("Cache returned %v the second time after %v\n", val, elapsedTime)
-
-	return true
+func TestCacheExample(t *testing.T) {
+	assert.True(t, cacheExample(), "cache example failed to run")
 }

@@ -130,26 +130,31 @@ computation to generate the values are resource intensive and can be re-used whe
 In this example the cache is used to avoid long think times when calculating the value for the given key:
 
 ```go
-func cacheExample() {
-	rand := rand.New(rand.NewSource(13))
-
+func cacheExample() bool {
 	thinkCache, _ := cache.NewComputeFunctionCache(func(key interface{}) (interface{}, error) {
-		thinkTime := rand.Int() % 100
-		thinkDuration := time.Millisecond * time.Duration(thinkTime)
-
-		time.Sleep(thinkDuration)
+		// lemme think for a second
+		time.Sleep(1 * time.Second)
 
 		// Sort of a silly computation!
 		return key, nil
+
 	})
 
-	// First time it'll think for 0 to 99 milliseconds
+	// First time it'll think for a second while computing the value
+	nowTime := time.Now()
 	val, _ := thinkCache.Compute(13)
-	fmt.Printf("Cache returned %v", val)
+	elapsedTime := time.Now().Sub(nowTime)
+	
+	fmt.Printf("Cache returned %v after %v\n", val, elapsedTime)
 
 	// Second time it won't think, it'll take the value from the cache
+	nowTime = time.Now()
 	val, _ = thinkCache.Compute(13)
-	fmt.Printf("Cache returned %v the second time asking for same value", val)
+	elapsedTime = time.Now().Sub(nowTime)
+
+	fmt.Printf("Cache returned %v the second time after %v\n", val, elapsedTime)
+
+	return true
 }
 ```
 
