@@ -102,7 +102,7 @@ func TestRemove(t *testing.T) {
 	assert.True(t, c.HasKey("sailor"), "should have the sailor value")
 	assert.Equal(t, 3, c.Size(), "size should be three prior to remove")
 
-	c.Remove(func(key interface{}) bool {
+	c.Remove(func(key interface{}, value interface{}) bool {
 		if "there" == key || "sailor" == key {
 			return true
 		}

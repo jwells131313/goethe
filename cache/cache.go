@@ -193,7 +193,7 @@ func (cache *cacheData) internalClear() {
 	cache.cache = make(map[interface{}]interface{})
 }
 
-func (cache *cacheData) Remove(removalFunc func(key interface{}) bool) {
+func (cache *cacheData) Remove(removalFunc func(key interface{}, value interface{}) bool) {
 	tid := gd.GetThreadID()
 	if tid < 0 {
 		replyChan := make(chan bool)
@@ -208,18 +208,18 @@ func (cache *cacheData) Remove(removalFunc func(key interface{}) bool) {
 	cache.internalRemove(removalFunc)
 }
 
-func (cache *cacheData) channelRemove(removalFunc func(key interface{}) bool, retChan chan bool) {
+func (cache *cacheData) channelRemove(removalFunc func(key interface{}, value interface{}) bool, retChan chan bool) {
 	cache.internalRemove(removalFunc)
 
 	retChan <- true
 }
 
-func (cache *cacheData) internalRemove(removalFunc func(key interface{}) bool) {
+func (cache *cacheData) internalRemove(removalFunc func(key interface{}, value interface{}) bool) {
 	cache.lock.Lock()
 	defer cache.lock.Unlock()
 
-	for key, _ := range cache.cache {
-		if removalFunc(key) {
+	for key, value := range cache.cache {
+		if removalFunc(key, value) {
 			delete(cache.cache, key)
 		}
 	}
