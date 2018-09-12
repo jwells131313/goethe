@@ -49,12 +49,6 @@ and in thread pools.
 This package maintains one global goethe implementation which can be gotten using the
 github.com/jwells131313/goethe.GetGoethe() method.
 
-NOTE:  The current version of this API is 0.9.1.  This means that the API has
-not settled completely and may change in future revisions.  Once the goethe
-team has decided the API is good as it is we will make the 1.0 version which
-will have some backward compatibility guarantees.  In the meantime, if you
-have questions or comments please open issues.  Thank you.
-
 1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
 3. [Recursive Locks](#recursive-locks)
