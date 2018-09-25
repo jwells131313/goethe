@@ -52,21 +52,15 @@ build:
       exclude: "^vendor"
 
     - script:
-      name: install dep
-      code: go get -u github.com/golang/dep/cmd/dep
-
-    - script:
-      name: get dependencies
-      code: dep ensure
+      name: turn on modules
+      code: export GO111MODULE=on
 
     # vet the code
     - script:
       name: go vet
-      code: |
-        go vet ./...
+      code: go vet ./...
 
     # Test the project
     - script:
         name: go test
-        code: |
-          go test -v ./...
+        code: go test -v ./...
