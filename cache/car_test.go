@@ -60,6 +60,20 @@ const (
 	ten   = "10"
 )
 
+var (
+	take_off_of_b2 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1,
+	}
+
+	access_t2 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 1, 5,
+	}
+)
+
 func TestAddElevenToCacheSizeTen(t *testing.T) {
 	carCache, err := NewCARCache(10, &iConversionType{}, nil)
 	if !assert.Nil(t, err, "could not create car cache") {
@@ -124,6 +138,42 @@ func TestAddElevenToCacheSizeTenForwardThenBackward(t *testing.T) {
 	assert.Equal(t, 1, getB2Size(carCache))
 
 	assert.Equal(t, 0, getP(carCache))
+}
+
+func TestTakeOffOfB1(t *testing.T) {
+	runTest(t, take_off_of_b2, 10, 11, 0, 10, 1, 0, 0)
+}
+
+func TestAccessT2(t *testing.T) {
+	runTest(t, access_t2, 10, 11, 0, 10, 1, 0, 0)
+}
+
+func runTest(t *testing.T, input []int, vs int, ks int, t1 int, t2 int, b1 int, b2 int, ep int) {
+	c, err := NewCARCache(10, newTestEchoCalculator(), nil)
+	if !assert.Nil(t, err, "could not create cache %v", err) {
+		return
+	}
+
+	for _, i := range input {
+		r, err := c.Compute(i)
+		if !assert.Nil(t, err, "could not calculate %v", err) {
+			return
+		}
+
+		if !assert.Equal(t, i, r, "did not get expected return") {
+			return
+		}
+	}
+
+	assert.Equal(t, vs, getValueSize(c))
+	assert.Equal(t, ks, getKeySize(c))
+
+	assert.Equal(t, t1, getT1Size(c))
+	assert.Equal(t, t2, getT2Size(c))
+	assert.Equal(t, b1, getB1Size(c))
+	assert.Equal(t, b2, getB2Size(c))
+
+	assert.Equal(t, ep, getP(c))
 }
 
 type iConversionType struct {
