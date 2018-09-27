@@ -42,31 +42,39 @@ package cache
 
 import "sync"
 
-// LRUKeyMap is an LRU map that only keeps the keys (used in the CAR algorithm
+// lruKeyMap is an LRU map that only keeps the keys (used in the CAR algorithm
 // for lists B1 and B2)
-type LRUKeyMap interface {
+type lruKeyMap interface {
 	// AddMRU adds the given key as the MRU of the list
 	AddMRU(interface{})
 	// RemoveLRU removes the LRU of the list
 	RemoveLRU()
+	// Remove removes a specific key from the cache
+	Remove(interface{})
 	// GetCurrentSize returns the current number of entries in the LRUKeyMap
 	GetCurrentSize() int
 	// Contains returns true if the given key is in the LRUKeyMap
 	Contains(interface{}) bool
 }
 
-// NewLRUKeyMap returns an implementation of LRUKeyMap
-func NewLRUKeyMap() LRUKeyMap {
-	return &lruKeyMapData{
-		keys: make(map[interface{}]interface{}),
-		list: make([]interface{}, 0),
-	}
+type lruDoubleLinkedData struct {
+	key      interface{}
+	previous *lruDoubleLinkedData
+	next     *lruDoubleLinkedData
 }
 
 type lruKeyMapData struct {
 	lock sync.Mutex
-	keys map[interface{}]interface{}
-	list []interface{}
+	keys map[interface{}]*lruDoubleLinkedData
+	mru  *lruDoubleLinkedData
+	lru  *lruDoubleLinkedData
+}
+
+// newLRUKeyMap returns an implementation of LRUKeyMap
+func newLRUKeyMap() lruKeyMap {
+	return &lruKeyMapData{
+		keys: make(map[interface{}]*lruDoubleLinkedData),
+	}
 }
 
 func (lkm *lruKeyMapData) AddMRU(key interface{}) {
@@ -78,36 +86,73 @@ func (lkm *lruKeyMapData) AddMRU(key interface{}) {
 		panic("Should never add a key that is already in the list")
 	}
 
-	lkm.list = append(lkm.list, key)
-	lkm.keys[key] = key
+	addMe := &lruDoubleLinkedData{
+		key:  key,
+		next: lkm.mru,
+	}
+
+	if lkm.mru == nil {
+		lkm.mru = addMe
+		lkm.lru = addMe
+	} else {
+		lkm.mru.previous = addMe
+		lkm.mru = addMe
+	}
+
+	lkm.keys[key] = addMe
 }
 
 func (lkm *lruKeyMapData) RemoveLRU() {
 	lkm.lock.Lock()
 	defer lkm.lock.Unlock()
 
-	if len(lkm.list) == 0 {
+	if lkm.lru == nil {
 		return
 	}
 
-	removeMe := lkm.list[0]
-	delete(lkm.keys, removeMe)
+	delete(lkm.keys, lkm.lru.key)
 
-	newSmallerList := make([]interface{}, len(lkm.list)-1)
-	if len(lkm.list) > 1 {
-		copy(newSmallerList, lkm.list[1:])
+	if lkm.lru.previous == nil {
+		lkm.mru = nil
+		lkm.lru = nil
+	} else {
+		lkm.lru.previous.next = nil
+		lkm.lru = lkm.lru.previous
 	}
 
-	lkm.list = newSmallerList
-
 	return
+}
+
+func (lkm *lruKeyMapData) Remove(key interface{}) {
+	lkm.lock.Lock()
+	defer lkm.lock.Unlock()
+
+	node, found := lkm.keys[key]
+	if !found {
+		return
+	}
+	delete(lkm.keys, key)
+
+	if node.previous != nil {
+		node.previous.next = node.next
+	} else {
+		// the mru needs to move
+		lkm.mru = node.next
+	}
+
+	if node.next != nil {
+		node.next.previous = node.previous
+	} else {
+		// the lru needs to move
+		lkm.lru = node.previous
+	}
 }
 
 func (lkm *lruKeyMapData) GetCurrentSize() int {
 	lkm.lock.Lock()
 	defer lkm.lock.Unlock()
 
-	return len(lkm.list)
+	return len(lkm.keys)
 }
 
 func (lkm *lruKeyMapData) Contains(key interface{}) bool {

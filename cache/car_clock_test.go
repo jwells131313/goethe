@@ -45,118 +45,138 @@ import (
 	"testing"
 )
 
-func TestBasicLRU(t *testing.T) {
-	lkm := newLRUKeyMap()
-	assert.Equal(t, 0, lkm.GetCurrentSize())
-
-	lkm.AddMRU(1)
-	assert.Equal(t, 1, lkm.GetCurrentSize())
-
-	assert.True(t, lkm.Contains(1))
-	assert.False(t, lkm.Contains(2))
-
-	lkm.AddMRU(2)
-	assert.Equal(t, 2, lkm.GetCurrentSize())
-
-	assert.True(t, lkm.Contains(1))
-	assert.True(t, lkm.Contains(2))
-
-	lkm.RemoveLRU()
-
-	assert.Equal(t, 1, lkm.GetCurrentSize())
-
-	assert.False(t, lkm.Contains(1))
-	assert.True(t, lkm.Contains(2))
-
-	lkm.RemoveLRU()
-
-	assert.Equal(t, 0, lkm.GetCurrentSize())
-
-	assert.False(t, lkm.Contains(1))
-	assert.False(t, lkm.Contains(2))
-
-	// Should be no-op
-	lkm.RemoveLRU()
-
-	assert.Equal(t, 0, lkm.GetCurrentSize())
-
-	assert.False(t, lkm.Contains(1))
-	assert.False(t, lkm.Contains(2))
-}
-
-func TestRemoveLRU(t *testing.T) {
-	lkm := newLRUKeyMap()
-
-	lkm.AddMRU(1)
-	lkm.AddMRU(2)
-	lkm.AddMRU(3)
-	lkm.AddMRU(4)
-	lkm.AddMRU(5)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{true, true, true, true, true})) {
+func TestAddCarClock(t *testing.T) {
+	cc := newCarClock()
+	if !assert.Equal(t, 0, cc.Size()) {
 		return
 	}
 
-	lkm.Remove(6)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{true, true, true, true, true})) {
+	cc.AddTail(1, -1)
+	if !assert.Equal(t, 1, cc.Size()) {
 		return
 	}
 
-	lkm.Remove(3)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{true, true, false, true, true})) {
+	if !assert.False(t, cc.GetPageReferenceOfHead(), "initial page ref of head should be false") {
 		return
 	}
 
-	lkm.Remove(5)
+	cc.SetPageReference(1)
 
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{true, true, false, true, false})) {
+	if !assert.True(t, cc.GetPageReferenceOfHead(), "page ref of key should be true") {
 		return
 	}
 
-	lkm.Remove(1)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{false, true, false, true, false})) {
+	raw, found := cc.Get(1)
+	if !assert.True(t, found, "1 is there") {
 		return
 	}
 
-	lkm.Remove(2)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{false, false, false, true, false})) {
+	retVal := raw.(int)
+	if !assert.Equal(t, -1, retVal) {
 		return
 	}
 
-	lkm.Remove(4)
-
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{false, false, false, false, false})) {
+	_, found = cc.Get(1)
+	if !assert.True(t, found, "1 is there") {
 		return
 	}
 
-	// Should do nothing
-	lkm.Remove(4)
+	_, found = cc.Get(2)
+	if !assert.False(t, found, "2 is not there yet") {
+		return
+	}
 
-	if !assert.True(t, checkOneThroughFive(t, lkm, []bool{false, false, false, false, false})) {
+	cc.AddTail(2, -2)
+	if !assert.Equal(t, 2, cc.Size()) {
+		return
+	}
+
+	// 1 is at head and has page bit set.  2 is tail and does not have page bit set
+	if !assert.True(t, cc.GetPageReferenceOfHead(), "page ref of key should be true") {
+		return
+	}
+
+	if !checkRemove(t, cc, 1) {
+		return
+	}
+
+	// Now 2 should be at head with bit not set
+	if !assert.False(t, cc.GetPageReferenceOfHead(), "page ref of key should be true") {
 		return
 	}
 }
 
-func checkOneThroughFive(t *testing.T, lru lruKeyMap, checkMe []bool) bool {
-	numExpected := 0
-	for index, check := range checkMe {
-		val := index + 1
+func TestInternalPageReferences(t *testing.T) {
+	cc := newCarClock()
 
-		if !assert.Equal(t, check, lru.Contains(val), "Value %d", val) {
-			return false
-		}
-		if check {
-			numExpected++
-		}
+	cc.AddTail(1, -1)
+	cc.AddTail(2, -2)
+	cc.AddTail(3, -3)
+	cc.AddTail(4, -4)
+
+	cc.SetPageReference(2)
+	cc.SetPageReference(3)
+
+	if !assert.Equal(t, 4, cc.Size()) {
+		return
 	}
 
-	if !assert.Equal(t, numExpected, lru.GetCurrentSize(), "Invalid lru size") {
-		return false
+	// 1, 2, 3, 4
+	if !assert.False(t, cc.GetPageReferenceOfHead()) {
+		return
 	}
 
-	return true
+	if !checkRemove(t, cc, 1) {
+		return
+	}
+
+	// 2, 3, 4
+	if !assert.True(t, cc.GetPageReferenceOfHead()) {
+		return
+	}
+
+	if !checkRemove(t, cc, 2) {
+		return
+	}
+
+	// 3, 4
+	if !assert.True(t, cc.GetPageReferenceOfHead()) {
+		return
+	}
+
+	if !checkRemove(t, cc, 3) {
+		return
+	}
+
+	// 4
+	if !assert.False(t, cc.GetPageReferenceOfHead()) {
+		return
+	}
+
+	if !checkRemove(t, cc, 4) {
+		return
+	}
+
+	assert.Equal(t, 0, cc.Size())
+
+}
+
+func checkRemove(t *testing.T, cc carClock, key int) bool {
+	k, v, found := cc.RemoveHead()
+
+	success := true
+
+	if !assert.True(t, found) {
+		success = false
+	}
+	if !assert.Equal(t, key, k) {
+		success = false
+	}
+	expectedValue := -1 * key
+
+	if !assert.Equal(t, expectedValue, v) {
+		success = false
+	}
+
+	return success
 }
