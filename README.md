@@ -51,10 +51,11 @@ github.com/jwells131313/goethe.GetGoethe() method.
 
 1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
-3. [Recursive Locks](#recursive-locks)
-4. [Thread Pools](#thread-pools)
-5. [Thread Local Storage](#thread-local-storage)
-6. [Timers](#timers)
+3. [LRU-Style CAR Cache](#car-cache)
+4. [Recursive Locks](#recursive-locks)
+5. [Thread Pools](#thread-pools)
+6. [Thread Local Storage](#thread-local-storage)
+7. [Timers](#timers)
 
 ### ThreadID
 
@@ -113,6 +114,9 @@ func basicWithArgs() {
 	fmt.Println("the sum in my thread was ", sum)
 }
 ```
+
+## Caches
+
 ### In-Memory Computable Cache
 
 [![GoDoc](https://godoc.org/github.com/jwells131313/goethe/cache?status.svg)](https://godoc.org/github.com/jwells131313/goethe/cache)
@@ -152,7 +156,63 @@ func cacheExample() bool {
 }
 ```
 
-### Recursive Locks
+### CAR Cache
+
+A CAR cache is a limited size in-memory computable cache.  CAR caches are like LRU caches
+but have an algorithm that chooses values to be removed that is better performing (generally)
+than LRU caches.  For more information see
+[CAR Cache Algorithm](https://www.usenix.org/conference/fast-04/car-clock-adaptive-replacement)
+
+When you create a CAR cache you provide a max number.  The number of values the CAR cache
+will keep is max, but it might keep up to (2 * max) keys, as part of the algorithm keeps
+a history of previous keys seen.
+
+This example shows that one of the keys is dropped when the number of keys is greater than
+max.  In this simple example the CAR cache behaves like an LRU.  The CAR cache starts performing
+better when there are more a more complex set of cache hits.
+
+[embedmd]:# (examples/car.go /^package.*/ $)
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/jwells131313/goethe/cache"
+	"time"
+)
+
+func CARCache() {
+	cCache, _ := cache.NewComputeFunctionCARCache(5, func(key interface{}) (interface{}, error) {
+		// lemme think for a little bit
+		time.Sleep(100 * time.Millisecond)
+
+		// Sort of a silly computation!
+		return key, nil
+
+	})
+
+	// One more than the cache can hold!
+	for count := 0; count < 6; count++ {
+		cCache.Compute(count)
+	}
+
+	for count := 0; count < 6; count++ {
+		foundKey := cCache.HasKey(count)
+
+		var result string
+		if foundKey {
+			result = "found"
+		} else {
+			result = "not found"
+		}
+
+		fmt.Printf("Key %d is %s\n", count, result)
+	}
+
+}
+```
+
+## Recursive Locks
 
 In goethe threads you can have recursive reader/write mutexes which obey the following rules:
 
@@ -196,7 +256,7 @@ func main() {
 If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
 will return an error.
 
-### Thread Pools
+## Thread Pools
 
 Thread pools use goethe threads so that you can use thread-ids, thread-locals and recursive
 locks in your threaded application.
@@ -363,7 +423,7 @@ func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 One thing to notice is that use of the recursive writeLock is made safely and correctly!  No
 critical sections were harmed in the making of this example!
 
-### Thread Local Storage
+## Thread Local Storage
 
 Goethe threads can take advantage of named thread local storage.  Thread local storage can be first
 established by giving it a name, an initializer function and a destroyer function.  Then
@@ -422,7 +482,7 @@ func ringBell() {
 }
 ```
 
-### Under Construction
+## Under Construction
 
 In the future it is intended for goethe to provide the following:
 
