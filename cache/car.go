@@ -55,7 +55,8 @@ type carCache struct {
 }
 
 // NewCARCache creates a compute-function in-memory cache where the values
-// are only ever instantiated once.  The maximum size of the values held in the cache is given
+// are only ever instantiated once until they are removed.
+// The maximum size of the values held in the cache is given
 // by max.  This cache uses the CAR algorithm to determine which keys are removed from the
 // cache when space is exhausted.
 //
@@ -71,6 +72,21 @@ func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cac
 		B1:           newLRUKeyMap(),
 		B2:           newLRUKeyMap(),
 	}, nil
+}
+
+// NewComputeFunctionCARCache creates a compute-function in-memory CAR cache where the values
+// are only ever instantiated once until they are removed.
+// The maximum size of the values held in the cache is given
+// by max.  This cache uses the CAR algorithm to determine which keys are removed from the
+// cache when space is exhausted.
+//
+// The CAR algorithm keeps at most max values but up to 2 * max the number of keys
+func NewComputeFunctionCARCache(max int, calculator func(key interface{}) (interface{}, error)) (Cache, error) {
+	calc := &basicComputer{
+		calcFunc: calculator,
+	}
+
+	return NewCARCache(max, calc, nil)
 }
 
 func (cc *carCache) Compute(key interface{}) (interface{}, error) {

@@ -121,7 +121,11 @@ var (
 )
 
 func TestAddElevenToCacheSizeTen(t *testing.T) {
-	carCache, err := NewCARCache(10, &iConversionType{}, nil)
+	carCache, err := NewComputeFunctionCARCache(10, func(key interface{}) (interface{}, error) {
+		skey := key.(string)
+
+		return strconv.Atoi(skey)
+	})
 	if !assert.Nil(t, err, "could not create car cache") {
 		return
 	}
