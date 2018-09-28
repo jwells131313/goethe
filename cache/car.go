@@ -126,8 +126,19 @@ func (cc *carCache) Clear() {
 	cc.internalClear()
 }
 
-func (cc *carCache) Remove(func(key interface{}, value interface{}) bool) {
-	panic("implement me")
+func (cc *carCache) Remove(removalFunc func(key interface{}, value interface{}) bool) {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cc.channelRemove, removalFunc, replyChan)
+
+		<-replyChan
+
+		return
+	}
+
+	cc.internalRemove(removalFunc)
 }
 
 func (cc *carCache) Size() int {
@@ -302,7 +313,8 @@ func (cc *carCache) internalRemove(removalFunc func(key interface{}, value inter
 
 	cc.T1.RemoveAll(removalFunc)
 	cc.T2.RemoveAll(removalFunc)
-
+	cc.B1.RemoveAll(removalFunc)
+	cc.B2.RemoveAll(removalFunc)
 }
 
 func (cc *carCache) isXInB(key interface{}) bool {

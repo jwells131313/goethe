@@ -98,6 +98,26 @@ var (
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1,
 		11,
 	}
+
+	add_to_t1_with_value_in_b2 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		11,
+	}
+
+	push_p_to_max = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
+		15, 20, 16, 21, 17, 22, 23, 18, 19,
+	}
+
+	p_to_5_back_to_2 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
+		9, 8, 7,
+	}
 )
 
 func TestAddElevenToCacheSizeTen(t *testing.T) {
@@ -190,6 +210,14 @@ func TestCycleAccessedT2ToFindDemotion(t *testing.T) {
 	runTest(t, cycle_accessed_t2_to_find_demotion, 10, 12, 1, 9, 1, 1, 0)
 }
 
+func TestPushPToMax(t *testing.T) {
+	runTest(t, push_p_to_max, 10, 20, 4, 6, 0, 10, 10)
+}
+
+func TestPushTo5BackTo2(t *testing.T) {
+	runTest(t, p_to_5_back_to_2, 10, 18, 2, 8, 3, 5, 2)
+}
+
 func runTest(t *testing.T, input []int, vs int, ks int, t1 int, t2 int, b1 int, b2 int, ep int) {
 	c, err := NewCARCache(10, newTestEchoCalculator(), nil)
 	if !assert.Nil(t, err, "could not create cache %v", err) {
@@ -207,6 +235,46 @@ func runTest(t *testing.T, input []int, vs int, ks int, t1 int, t2 int, b1 int, 
 		}
 	}
 
+	checkOutputs(t, c, vs, ks, t1, t2, b1, b2, ep)
+}
+
+func TestAddToT2WithValueInB2(t *testing.T) {
+	c, err := NewCARCache(10, newTestEchoCalculator(), nil)
+	if !assert.Nil(t, err, "could not create cache %v", err) {
+		return
+	}
+
+	for _, i := range add_to_t1_with_value_in_b2 {
+		r, err := c.Compute(i)
+		if !assert.Nil(t, err, "could not calculate %v", err) {
+			return
+		}
+
+		if !assert.Equal(t, i, r, "did not get expected return") {
+			return
+		}
+	}
+
+	// At this point 0 is in B1, 1 is in B2, 7 is in T2
+	// We remove 0 to make the size of B1 less than B2,
+	// and remove a value from T2 to allow the cache to
+	// just take a new one, then take it from B2
+	c.Remove(func(rkey interface{}, _ interface{}) bool {
+		key := rkey.(int)
+		if key == 0 {
+			return true
+		}
+		if key == 7 {
+			return true
+		}
+		return false
+	})
+	c.Compute(1)
+
+	checkOutputs(t, c, 10, 10, 1, 9, 0, 0, 0)
+}
+
+func checkOutputs(t *testing.T, c Cache, vs int, ks int, t1 int, t2 int, b1 int, b2 int, ep int) {
 	assert.Equal(t, vs, getValueSize(c))
 	assert.Equal(t, ks, getKeySize(c))
 
