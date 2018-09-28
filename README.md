@@ -51,10 +51,11 @@ github.com/jwells131313/goethe.GetGoethe() method.
 
 1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
-3. [Recursive Locks](#recursive-locks)
-4. [Thread Pools](#thread-pools)
-5. [Thread Local Storage](#thread-local-storage)
-6. [Timers](#timers)
+3. [LRU-Style CAR Cache](#car-cache)
+4. [Recursive Locks](#recursive-locks)
+5. [Thread Pools](#thread-pools)
+6. [Thread Local Storage](#thread-local-storage)
+7. [Timers](#timers)
 
 ### ThreadID
 
