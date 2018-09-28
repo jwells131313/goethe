@@ -54,7 +54,7 @@ type carCache struct {
 	B2           lruKeyMap
 }
 
-// NewComputeFunctionCARCache creates a compute-function in-memory cache where the values
+// NewCARCache creates a compute-function in-memory cache where the values
 // are only ever instantiated once.  The maximum size of the values held in the cache is given
 // by max.  This cache uses the CAR algorithm to determine which keys are removed from the
 // cache when space is exhausted.

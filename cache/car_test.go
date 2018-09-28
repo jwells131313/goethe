@@ -61,58 +61,58 @@ const (
 )
 
 var (
-	take_off_of_b2 = []int{
+	takeOffOfB2 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1,
 	}
 
-	access_t2 = []int{
+	accessT2 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 1, 5,
 	}
 
-	take_off_of_b1 = []int{
+	takeOffOfB1 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 0,
 	}
 
-	equal_t1_t2 = []int{
+	equalT1T2 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
 	}
 
-	max_out_b2_keys_plus_one = []int{
+	maxOutB2KeysPlusOne = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
 		15, 20, 16, 21, 17, 22,
 	}
 
-	cycle_accessed_t2_to_find_demotion = []int{
+	cycleAccessedT2ToFindDemotion = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1,
 		11,
 	}
 
-	add_to_t1_with_value_in_b2 = []int{
+	addToT1WithValueInB2 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		11,
 	}
 
-	push_p_to_max = []int{
+	pushPToMax = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
 		15, 20, 16, 21, 17, 22, 23, 18, 19,
 	}
 
-	p_to_5_back_to_2 = []int{
+	pTo5BackTo2 = []int{
 		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
@@ -187,35 +187,35 @@ func TestAddElevenToCacheSizeTenForwardThenBackward(t *testing.T) {
 }
 
 func TestTakeOffOfB2(t *testing.T) {
-	runTest(t, take_off_of_b2, 10, 11, 0, 10, 1, 0, 0)
+	runTest(t, takeOffOfB2, 10, 11, 0, 10, 1, 0, 0)
 }
 
 func TestAccessT2(t *testing.T) {
-	runTest(t, access_t2, 10, 11, 0, 10, 1, 0, 0)
+	runTest(t, accessT2, 10, 11, 0, 10, 1, 0, 0)
 }
 
 func TestTakeOffOfB1(t *testing.T) {
-	runTest(t, take_off_of_b1, 10, 11, 0, 10, 0, 1, 1)
+	runTest(t, takeOffOfB1, 10, 11, 0, 10, 0, 1, 1)
 }
 
 func TestEqualT1T2(t *testing.T) {
-	runTest(t, equal_t1_t2, 10, 18, 5, 5, 0, 8, 5)
+	runTest(t, equalT1T2, 10, 18, 5, 5, 0, 8, 5)
 }
 
 func TestMaxOutB2KeysPlusOne(t *testing.T) {
-	runTest(t, max_out_b2_keys_plus_one, 10, 20, 5, 5, 0, 10, 5)
+	runTest(t, maxOutB2KeysPlusOne, 10, 20, 5, 5, 0, 10, 5)
 }
 
 func TestCycleAccessedT2ToFindDemotion(t *testing.T) {
-	runTest(t, cycle_accessed_t2_to_find_demotion, 10, 12, 1, 9, 1, 1, 0)
+	runTest(t, cycleAccessedT2ToFindDemotion, 10, 12, 1, 9, 1, 1, 0)
 }
 
 func TestPushPToMax(t *testing.T) {
-	runTest(t, push_p_to_max, 10, 20, 4, 6, 0, 10, 10)
+	runTest(t, pushPToMax, 10, 20, 4, 6, 0, 10, 10)
 }
 
 func TestPushTo5BackTo2(t *testing.T) {
-	runTest(t, p_to_5_back_to_2, 10, 18, 2, 8, 3, 5, 2)
+	runTest(t, pTo5BackTo2, 10, 18, 2, 8, 3, 5, 2)
 }
 
 func runTest(t *testing.T, input []int, vs int, ks int, t1 int, t2 int, b1 int, b2 int, ep int) {
@@ -244,7 +244,7 @@ func TestAddToT2WithValueInB2(t *testing.T) {
 		return
 	}
 
-	for _, i := range add_to_t1_with_value_in_b2 {
+	for _, i := range addToT1WithValueInB2 {
 		r, err := c.Compute(i)
 		if !assert.Nil(t, err, "could not calculate %v", err) {
 			return
