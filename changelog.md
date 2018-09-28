@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+
+## [1.1.0] - 2018-09-28
+### Added
 - Documentation fixes
 - Use go 1.11 modules for versioning
 - New feature:  CAR cache!
