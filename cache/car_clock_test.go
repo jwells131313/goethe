@@ -161,6 +161,50 @@ func TestInternalPageReferences(t *testing.T) {
 
 }
 
+func TestRemoveAll(t *testing.T) {
+	cc := newCarClock()
+
+	cc.AddTail(0, 0)
+	cc.AddTail(1, -1)
+	cc.AddTail(2, -2)
+	cc.AddTail(3, -3)
+	cc.AddTail(4, -4)
+	cc.AddTail(5, -5)
+	cc.AddTail(6, -6)
+	cc.AddTail(7, -7)
+	cc.AddTail(8, -8)
+	cc.AddTail(9, -9)
+
+	if !assert.Equal(t, 10, cc.Size()) {
+		return
+	}
+
+	cc.RemoveAll(func(key interface{}, value interface{}) bool {
+		ikey := key.(int)
+
+		if ikey%2 == 0 {
+			return true
+		}
+
+		return false
+	})
+
+	if !assert.Equal(t, 5, cc.Size()) {
+		return
+	}
+
+	cc.AddTail(0, 0)
+	cc.AddTail(2, 2)
+
+	if !assert.Equal(t, 7, cc.Size()) {
+		return
+	}
+
+	for cc.Size() > 0 {
+		cc.RemoveHead()
+	}
+}
+
 func checkRemove(t *testing.T, cc carClock, key int) bool {
 	k, v, found := cc.RemoveHead()
 

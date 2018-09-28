@@ -50,6 +50,7 @@ type carClock interface {
 	GetPageReferenceOfHead() bool
 	RemoveHead() (interface{}, interface{}, bool)
 	SetPageReference(interface{})
+	RemoveAll(func(key interface{}, value interface{}) bool)
 }
 
 type carClockValue struct {
@@ -156,4 +157,39 @@ func (ccd *carClockData) SetPageReference(key interface{}) {
 	}
 
 	toUpdate.pageReferenceBit = true
+}
+
+func (ccd *carClockData) RemoveAll(rf func(key interface{}, value interface{}) bool) {
+	ccd.lock.Lock()
+	defer ccd.lock.Unlock()
+
+	if ccd.head == nil {
+		return
+	}
+
+	dot := ccd.head
+	var prior *carClockValue
+	for {
+		val := ccd.keyMap[dot.key]
+		if rf(dot.key, val) {
+			if prior == nil {
+				ccd.head = dot.next
+			} else {
+				prior.next = dot.next
+			}
+
+			if dot.next == nil {
+				ccd.tail = prior
+			}
+
+			delete(ccd.keyMap, dot.key)
+		}
+
+		prior = dot
+		dot = dot.next
+		if dot == nil {
+			return
+		}
+	}
+
 }

@@ -97,11 +97,33 @@ func (cc *carCache) GetCycleHandler() CycleHandler {
 }
 
 func (cc *carCache) HasKey(key interface{}) bool {
-	panic("implement me")
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cc.channelHasKey, key, replyChan)
+
+		reply := <-replyChan
+
+		return reply
+	}
+
+	return cc.internalHasKey(key)
 }
 
 func (cc *carCache) Clear() {
-	panic("implement me")
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan bool)
+
+		gd.Go(cc.channelClear, replyChan)
+
+		<-replyChan
+
+		return
+	}
+
+	cc.internalClear()
 }
 
 func (cc *carCache) Remove(func(key interface{}, value interface{}) bool) {
@@ -109,7 +131,18 @@ func (cc *carCache) Remove(func(key interface{}, value interface{}) bool) {
 }
 
 func (cc *carCache) Size() int {
-	panic("implement me")
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan int)
+
+		gd.Go(cc.channelSize, replyChan)
+
+		retVal := <-replyChan
+
+		return retVal
+	}
+
+	return cc.internalSize()
 }
 
 func (cc *carCache) channelInternalCompute(key interface{}, reply chan (*onGoetheReply)) {
@@ -202,6 +235,74 @@ func (cc *carCache) internalCompute(key interface{}) (interface{}, error) {
 	}
 
 	return value, nil
+}
+
+func (cc *carCache) channelSize(retChan chan int) {
+	retVal := cc.internalSize()
+
+	retChan <- retVal
+}
+
+func (cc *carCache) internalSize() int {
+	cc.lock.ReadLock()
+	defer cc.lock.ReadUnlock()
+
+	return cc.T1.Size() + cc.T2.Size()
+}
+
+func (cc *carCache) channelClear(retChan chan bool) {
+	cc.internalClear()
+
+	retChan <- true
+}
+
+func (cc *carCache) internalClear() {
+	cc.lock.WriteLock()
+	defer cc.lock.WriteUnlock()
+
+	cc.p = 0
+	cc.T1 = newCarClock()
+	cc.T2 = newCarClock()
+	cc.B1 = newLRUKeyMap()
+	cc.B2 = newLRUKeyMap()
+}
+
+func (cc *carCache) channelHasKey(key interface{}, retChan chan bool) {
+	ret := cc.internalHasKey(key)
+
+	retChan <- ret
+}
+
+func (cc *carCache) internalHasKey(key interface{}) bool {
+	cc.lock.ReadLock()
+	defer cc.lock.ReadUnlock()
+
+	_, found := cc.T1.Get(key)
+	if found {
+		return true
+	}
+
+	_, found = cc.T2.Get(key)
+	if found {
+		return true
+	}
+
+	return false
+}
+
+func (cc *carCache) channelRemove(removalFunc func(key interface{}, value interface{}) bool, retChan chan bool) {
+	cc.internalRemove(removalFunc)
+
+	retChan <- true
+}
+
+func (cc *carCache) internalRemove(removalFunc func(key interface{}, value interface{}) bool) {
+	cc.lock.WriteLock()
+	defer cc.lock.WriteUnlock()
+
+	cc.T1.RemoveAll(removalFunc)
+	cc.T2.RemoveAll(removalFunc)
+
 }
 
 func (cc *carCache) isXInB(key interface{}) bool {

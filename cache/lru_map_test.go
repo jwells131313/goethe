@@ -160,3 +160,42 @@ func checkOneThroughFive(t *testing.T, lru lruKeyMap, checkMe []bool) bool {
 
 	return true
 }
+
+func TestRemoveAllLRU(t *testing.T) {
+	lkm := newLRUKeyMap()
+
+	for lcv := 0; lcv < 10; lcv++ {
+		lkm.AddMRU(lcv)
+	}
+
+	assert.Equal(t, 10, lkm.GetCurrentSize())
+
+	lkm.RemoveAll(func(key interface{}, value interface{}) bool {
+		ikey := key.(int)
+		if ikey%2 == 0 {
+			return true
+		}
+
+		return false
+	})
+
+	assert.Equal(t, 5, lkm.GetCurrentSize())
+
+	for lcv := 0; lcv < 10; lcv++ {
+		expectedResult := lcv%2 != 0
+
+		assert.Equal(t, expectedResult, lkm.Contains(lcv), "Expected: %v, lcv: %d", expectedResult, lcv)
+	}
+
+	for lcv := 0; lcv < 10; lcv++ {
+		if lcv%2 == 0 {
+			lkm.AddMRU(lcv)
+		}
+	}
+
+	assert.Equal(t, 10, lkm.GetCurrentSize())
+
+	for lcv := 0; lcv < 10; lcv++ {
+		assert.True(t, lkm.Contains(lcv))
+	}
+}

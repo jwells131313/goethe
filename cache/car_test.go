@@ -72,6 +72,32 @@ var (
 		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
 		1, 1, 5,
 	}
+
+	take_off_of_b1 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 0,
+	}
+
+	equal_t1_t2 = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
+	}
+
+	max_out_b2_keys_plus_one = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 0, 11, 12, 11, 12, 15, 16, 17, 18, 19,
+		15, 20, 16, 21, 17, 22,
+	}
+
+	cycle_accessed_t2_to_find_demotion = []int{
+		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+		10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1,
+		11,
+	}
 )
 
 func TestAddElevenToCacheSizeTen(t *testing.T) {
@@ -140,12 +166,28 @@ func TestAddElevenToCacheSizeTenForwardThenBackward(t *testing.T) {
 	assert.Equal(t, 0, getP(carCache))
 }
 
-func TestTakeOffOfB1(t *testing.T) {
+func TestTakeOffOfB2(t *testing.T) {
 	runTest(t, take_off_of_b2, 10, 11, 0, 10, 1, 0, 0)
 }
 
 func TestAccessT2(t *testing.T) {
 	runTest(t, access_t2, 10, 11, 0, 10, 1, 0, 0)
+}
+
+func TestTakeOffOfB1(t *testing.T) {
+	runTest(t, take_off_of_b1, 10, 11, 0, 10, 0, 1, 1)
+}
+
+func TestEqualT1T2(t *testing.T) {
+	runTest(t, equal_t1_t2, 10, 18, 5, 5, 0, 8, 5)
+}
+
+func TestMaxOutB2KeysPlusOne(t *testing.T) {
+	runTest(t, max_out_b2_keys_plus_one, 10, 20, 5, 5, 0, 10, 5)
+}
+
+func TestCycleAccessedT2ToFindDemotion(t *testing.T) {
+	runTest(t, cycle_accessed_t2_to_find_demotion, 10, 12, 1, 9, 1, 1, 0)
 }
 
 func runTest(t *testing.T, input []int, vs int, ks int, t1 int, t2 int, b1 int, b2 int, ep int) {

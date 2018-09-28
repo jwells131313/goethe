@@ -55,6 +55,10 @@ type lruKeyMap interface {
 	GetCurrentSize() int
 	// Contains returns true if the given key is in the LRUKeyMap
 	Contains(interface{}) bool
+	// RemoveAll removes all of the keys for which the function returns true
+	// Since no values are stored in this map the value part of the func
+	// will always be passed nil
+	RemoveAll(func(interface{}, interface{}) bool)
 }
 
 type lruDoubleLinkedData struct {
@@ -161,4 +165,30 @@ func (lkm *lruKeyMapData) Contains(key interface{}) bool {
 
 	_, found := lkm.keys[key]
 	return found
+}
+
+func (lkm *lruKeyMapData) RemoveAll(rf func(interface{}, interface{}) bool) {
+	for dot := lkm.mru; dot != nil; dot = dot.next {
+		if rf(dot.key, nil) {
+			delete(lkm.keys, dot.key)
+
+			if dot.previous == nil {
+				lkm.mru = dot.next
+				if dot.next != nil {
+					dot.next.previous = nil
+				}
+			} else {
+				dot.previous.next = dot.next
+				if dot.next != nil {
+					dot.next.previous = dot.previous
+				}
+			}
+
+			if dot.next == nil {
+				lkm.lru = dot.previous
+			}
+
+		}
+	}
+
 }
