@@ -46,6 +46,8 @@ import (
 	"time"
 )
 
+// CARCache is an example method that shows that a CAR cache of size five will only
+// keep five keys with values
 func CARCache() {
 	cCache, _ := cache.NewComputeFunctionCARCache(5, func(key interface{}) (interface{}, error) {
 		// lemme think for a little bit
