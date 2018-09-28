@@ -50,7 +50,8 @@ var (
 )
 
 const (
-	cacheThreadLocalName = "GoetheCacheThreadLocal"
+	cacheThreadLocalName    = "GoetheCacheThreadLocal"
+	carCacheThreadLocalName = "CarCacheThreadLocal"
 )
 
 type cacheData struct {
@@ -68,6 +69,10 @@ type onGoetheReply struct {
 
 func init() {
 	gd.EstablishThreadLocal(cacheThreadLocalName, func(tl goethe.ThreadLocal) error {
+		tl.Set(make(map[interface{}]interface{}))
+		return nil
+	}, nil)
+	gd.EstablishThreadLocal(carCacheThreadLocalName, func(tl goethe.ThreadLocal) error {
 		tl.Set(make(map[interface{}]interface{}))
 		return nil
 	}, nil)
@@ -243,36 +248,13 @@ func (cache *cacheData) internalCompute(key interface{}) (interface{}, error) {
 		return value, nil
 	}
 
-	// Must compute, but first see if we've tried to find it before
-	threadLocal, err := gd.GetThreadLocal(cacheThreadLocalName)
+	asks, err := checkCycle(cacheThreadLocalName, key, cache.cycleHandler)
 	if err != nil {
 		return nil, err
-	}
-
-	rawThreadLocal, err := threadLocal.Get()
-	if err != nil {
-		return nil, err
-	}
-
-	asks, ok := rawThreadLocal.(map[interface{}]interface{})
-	if !ok {
-		return nil, fmt.Errorf("internal error, thread local not expected type")
-	}
-
-	_, found = asks[key]
-	if found {
-		// Detected a cycle
-		if cache.cycleHandler != nil {
-			err = cache.cycleHandler(key)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		return nil, fmt.Errorf("A cycle was detected for this key: %v", key)
 	}
 
 	asks[key] = key
+	defer delete(asks, key)
 
 	// No cycle, now do the compute
 	value, err = cache.calculater.Compute(key)
@@ -312,4 +294,37 @@ func (cache *cacheData) internalSize() int {
 	defer cache.lock.ReadUnlock()
 
 	return len(cache.cache)
+}
+
+func checkCycle(localName string, key interface{}, handler CycleHandler) (map[interface{}]interface{}, error) {
+	// Must compute, but first see if we've tried to find it before
+	threadLocal, err := gd.GetThreadLocal(localName)
+	if err != nil {
+		return nil, err
+	}
+
+	rawThreadLocal, err := threadLocal.Get()
+	if err != nil {
+		return nil, err
+	}
+
+	asks, ok := rawThreadLocal.(map[interface{}]interface{})
+	if !ok {
+		return nil, fmt.Errorf("internal error, thread local not expected type")
+	}
+
+	_, found := asks[key]
+	if found {
+		// Detected a cycle
+		if handler != nil {
+			err = handler(key)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, fmt.Errorf("A cycle was detected for this key: %v", key)
+	}
+
+	return asks, nil
 }
