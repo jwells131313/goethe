@@ -334,11 +334,12 @@ func (cc *carCache) replace() {
 				cc.B1.AddMRU(key)
 
 				return
-			} else {
-				// Promoting to T2
-				key, value, _ := cc.T1.RemoveHead()
-				cc.T2.AddTail(key, value)
 			}
+
+			// Promoting to T2
+			key, value, _ := cc.T1.RemoveHead()
+			cc.T2.AddTail(key, value)
+
 		} else {
 			if !cc.T2.GetPageReferenceOfHead() {
 				// found in frequency
@@ -346,12 +347,11 @@ func (cc *carCache) replace() {
 				cc.B2.AddMRU(key)
 
 				return
-			} else {
-				// Clocks it front to back, but with bit set to false now
-				key, value, _ := cc.T2.RemoveHead()
-				cc.T2.AddTail(key, value)
 			}
 
+			// Clocks it front to back, but with bit set to false now
+			key, value, _ := cc.T2.RemoveHead()
+			cc.T2.AddTail(key, value)
 		}
 
 	}
