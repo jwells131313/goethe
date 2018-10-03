@@ -42,6 +42,7 @@ package goethe
 
 import (
 	"sync"
+	"time"
 )
 
 type goetheLock struct {
@@ -158,7 +159,7 @@ func (lock *goetheLock) getAllOtherReadCount(localTid int64) int32 {
 	var result int32
 
 	for tid, count := range lock.readerCounts {
-		if tid != localTid {
+		if localTid == -1 || tid != localTid {
 			result += count
 		}
 	}
@@ -236,4 +237,73 @@ func (lock *goetheLock) WriteUnlock() error {
 	}
 
 	return nil
+}
+
+func (lock *goetheLock) IsLocked() bool {
+	return lock.IsReadLocked() || lock.IsWriteLocked()
+}
+
+func (lock *goetheLock) IsWriteLocked() bool {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		channel := make(chan bool)
+
+		lock.parent.Go(lock.channelWriteLocked, channel)
+
+		return <-channel
+	}
+
+	return lock.internalWriteLocked()
+}
+
+func (lock *goetheLock) channelWriteLocked(retChan chan bool) {
+	retChan <- lock.internalWriteLocked()
+}
+
+func (lock *goetheLock) internalWriteLocked() bool {
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	if lock.holdingWriter == -2 {
+		return false
+	}
+
+	return true
+}
+
+func (lock *goetheLock) IsReadLocked() bool {
+	tid := lock.parent.GetThreadID()
+	if tid < 0 {
+		rv := make(chan bool)
+
+		lock.parent.Go(lock.channelIsReadLocked, rv)
+
+		return <-rv
+	}
+
+	return lock.internalIsReadLocked()
+}
+
+func (lock *goetheLock) channelIsReadLocked(retVal chan bool) {
+	retVal <- lock.internalIsReadLocked()
+}
+
+func (lock *goetheLock) internalIsReadLocked() bool {
+	lock.goMux.Lock()
+	defer lock.goMux.Unlock()
+
+	count := lock.getAllOtherReadCount(-1)
+	if count > 0 {
+		return true
+	}
+
+	return false
+}
+
+func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
+	panic("implement me")
+}
+
+func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
+	panic("implement me")
 }

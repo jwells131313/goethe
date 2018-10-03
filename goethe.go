@@ -227,6 +227,27 @@ type Lock interface {
 	// WriteUnlock unlocks write lock.  Will only truly leave
 	// critical section as reader when count is zero
 	WriteUnlock() error
+
+	// IsLocked returns true if the lock is either read or write lock held.
+	// Unlike other lock verbs, this one can be called from non-goethe threads
+	IsLocked() bool
+	// IsWriteLock returns true if the lock is held for write (which is still safe for read)
+	// Unlike other lock verbs, this one can be called from non-goethe threads
+	IsWriteLocked() bool
+	// IsReadLocked returs true if the lock is held for read and NOT write
+	// Unlike other lock verbs, this one can be called from non-goethe threads
+	IsReadLocked() bool
+
+	// TryReadLock will attempt to get the read lock for the given amount of time, returning
+	// true if it acquired the lock in the given duration.  If the duration is zero then it will
+	// return immediately with the answer.  If the duration is -1 it will wait forever.  Other
+	// negative values will cause an error to return
+	// TryReadLock(d time.Duration) (bool, error)
+	// TryWriteLock will attempt to get the write lock for the given amount of time, returning
+	// true if it acquired the lock in the given duration.  If the duration is zero then it will
+	// return immediately with the answer.  If the duration is -1 it will wait forever.  Other
+	// negative values will cause an error to return
+	// TryWriteLock(d time.Duration) (bool, error)
 }
 
 // FunctionDescriptor describes a function to be called with
