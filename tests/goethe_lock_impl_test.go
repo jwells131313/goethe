@@ -42,6 +42,7 @@ package tests
 
 import (
 	"github.com/jwells131313/goethe"
+	"github.com/stretchr/testify/assert"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -183,7 +184,216 @@ func TestReaderCanNotBecomeWriter(t *testing.T) {
 	t.Error("there was no error after 20 seconds")
 }
 
+func TestIsReadLockedInGThread(t *testing.T) {
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	retChan := make(chan bool)
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+
+	ethe.Go(func() {
+		if !checkLocks(t, false, false, lock) {
+			return
+		}
+
+		lock.ReadLock()
+
+		if !checkLocks(t, true, false, lock) {
+			return
+		}
+
+		lock.ReadUnlock()
+
+		if !checkLocks(t, false, false, lock) {
+			return
+		}
+
+		retChan <- true
+	})
+
+	ret := <-retChan
+	assert.True(t, ret)
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+}
+
+func TestIsWriteLockedInGThread(t *testing.T) {
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	retChan := make(chan bool)
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+
+	ethe.Go(func() {
+		if !checkLocks(t, false, false, lock) {
+			return
+		}
+
+		lock.WriteLock()
+
+		if !checkLocks(t, false, true, lock) {
+			return
+		}
+
+		lock.WriteUnlock()
+
+		if !checkLocks(t, false, false, lock) {
+			return
+		}
+
+		retChan <- true
+	})
+
+	ret := <-retChan
+	assert.True(t, ret)
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+}
+
+func TestIsLockedFromNonGThread(t *testing.T) {
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	syncer := make(chan int)
+
+	// This thread generally does some lock operation then waits for the main
+	// thread to test it.  The point is to test that the IsLocked verbs work
+	// from non-goethe threads and return the correct results
+	ethe.Go(func() {
+		lock.ReadLock()
+
+		syncer <- 0
+		val := <-syncer
+		assert.Equal(t, 0, val, "First sync bad")
+
+		lock.ReadUnlock()
+
+		syncer <- 1
+		val = <-syncer
+		assert.Equal(t, 1, val, "Second sync bad")
+
+		lock.WriteLock()
+
+		syncer <- 2
+		val = <-syncer
+		assert.Equal(t, 2, val, "Third sync bad")
+
+		lock.WriteUnlock()
+
+		syncer <- 3
+		val = <-syncer
+		assert.Equal(t, 3, val, "Fourth sync bad")
+
+		lock.WriteLock()
+		lock.ReadLock()
+
+		syncer <- 4
+		val = <-syncer
+		assert.Equal(t, 4, val, "Fifth sync bad")
+
+		lock.ReadUnlock()
+		lock.WriteUnlock()
+
+		syncer <- 5
+	})
+
+	// Wait for read lock
+	sync := <-syncer
+	if !assert.Equal(t, 0, sync, "First sync fail") {
+		return
+	}
+
+	if !checkLocks(t, true, false, lock) {
+		return
+	}
+
+	// Tell thread to go
+	syncer <- sync
+
+	// Wait for read unlock
+	sync = <-syncer
+	if !assert.Equal(t, 1, sync, "Second sync fail") {
+		return
+	}
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+
+	// Tell thread to go
+	syncer <- sync
+
+	// Wait for write lock
+	sync = <-syncer
+	if !assert.Equal(t, 2, sync, "Third sync fail") {
+		return
+	}
+
+	if !checkLocks(t, false, true, lock) {
+		return
+	}
+
+	// Tell thread to go
+	syncer <- sync
+
+	// Wait for write unlock
+	sync = <-syncer
+	if !assert.Equal(t, 3, sync, "Fourth sync fail") {
+		return
+	}
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+
+	// Tell the thread to go
+	syncer <- sync
+
+	// Wait for write/read lock
+	sync = <-syncer
+	if !assert.Equal(t, 4, sync, "Fifth sync fail") {
+		return
+	}
+
+	if !checkLocks(t, true, true, lock) {
+		return
+	}
+
+	// Tell the thread to go
+	syncer <- sync
+
+	// Wait for write/read unlock
+	sync = <-syncer
+	if !assert.Equal(t, 5, sync, "Sixth sync fail") {
+		return
+	}
+
+	if !checkLocks(t, false, false, lock) {
+		return
+	}
+}
+
 /* ***************************************** Below find utility functions ****************************************** */
+func checkLocks(t *testing.T, read, write bool, lock goethe.Lock) bool {
+	r1 := assert.Equal(t, read, lock.IsReadLocked(), "IsReadLocked did not have correct reply")
+	r2 := assert.Equal(t, write, lock.IsWriteLocked(), "IsWriteLocked did not have correct reply")
+
+	bothExpected := read || write
+	r3 := assert.Equal(t, bothExpected, lock.IsLocked(), "IsLocked did not have correct reply")
+
+	return r1 && r2 && r3
+}
+
 func writerWaitsForNReaders(t *testing.T, numReaders int, recurseDepth int, writeRecurseDepth int) {
 	waiter := newSimpleValue()
 	throttle := newThrottler()
