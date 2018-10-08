@@ -49,7 +49,7 @@ import (
 )
 
 const (
-	fudgeFactor time.Duration = 10 * time.Millisecond
+	fudgeFactor time.Duration = 2 * time.Millisecond
 )
 
 type timerImpl interface {
@@ -133,8 +133,7 @@ func (timer *timerData) runOne() bool {
 	peek := node.nextRingTime
 	pNode := node.job
 
-	now := time.Now()
-	now = now.Add(fudgeFactor)
+	now := time.Now().Add(fudgeFactor)
 
 	// Is it inside the range
 	until := (*peek).Sub(now)

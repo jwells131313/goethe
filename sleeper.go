@@ -41,6 +41,8 @@
 package goethe
 
 import (
+	"fmt"
+	"github.com/jwells131313/goethe/queues"
 	"sync"
 	"time"
 )
@@ -50,20 +52,20 @@ type sleeper interface {
 }
 
 type sleeperNode struct {
-	ringTime time.Time
+	ringTime *time.Time
 	cond     *sync.Cond
 	id       uint64
 }
 
 type sleeperImpl struct {
-	heap heapQueue
+	heap queues.Heap
 	lock Lock
 	jobs map[uint64]uint64
 }
 
 func newSleeper() sleeper {
 	return &sleeperImpl{
-		heap: newHeap(),
+		heap: queues.NewHeap(sleeperComparator),
 		lock: GetGoethe().NewGoetheLock(),
 		jobs: make(map[uint64]uint64),
 	}
@@ -87,15 +89,18 @@ func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNum
 
 	ringsAt := time.Now().Add(duration)
 	newNode := &sleeperNode{
-		ringTime: ringsAt,
+		ringTime: &ringsAt,
 		cond:     cond,
 		id:       jobNumber,
 	}
 
 	startNewThread := true
 
-	nextNode, _, found := sleepy.heap.Peek()
+	raw, found := sleepy.heap.Peek()
 	if found {
+		sn := raw.(*sleeperNode)
+		nextNode := sn.ringTime
+
 		until := nextNode.Sub(ringsAt)
 
 		if until < 0 {
@@ -104,7 +109,7 @@ func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNum
 		}
 	}
 
-	sleepy.heap.Add(&ringsAt, newNode)
+	sleepy.heap.Add(newNode)
 
 	if startNewThread {
 		GetGoethe().Go(sleepy.waiter, duration)
@@ -117,29 +122,52 @@ func (sleepy *sleeperImpl) waiter(duration time.Duration) {
 	sleepy.lock.Lock()
 	defer sleepy.lock.Unlock()
 
-	fireTime, _, found := sleepy.heap.Peek()
+	raw, found := sleepy.heap.Peek()
 	if !found {
 		return
 	}
 
+	sn := raw.(*sleeperNode)
+	fireTime := sn.ringTime
+
 	nextFire := time.Until(*fireTime)
 	for nextFire < fudgeFactor {
-		_, node, _ := sleepy.heap.Get()
+		// remove peeked node
+		sleepy.heap.Get()
 
-		noder, ok := node.(*sleeperNode)
-		if !ok {
-			panic("invalid type as heap payload")
-		}
+		delete(sleepy.jobs, sn.id)
 
-		delete(sleepy.jobs, noder.id)
+		sn.cond.Broadcast()
 
-		noder.cond.Broadcast()
-
-		fireTime, _, found = sleepy.heap.Peek()
+		raw, found = sleepy.heap.Peek()
 		if !found {
 			return
 		}
 
+		sn = raw.(*sleeperNode)
+		fireTime = sn.ringTime
+
 		nextFire = time.Until(*fireTime)
 	}
+}
+
+func (node *sleeperNode) String() string {
+	return fmt.Sprintf("SleeperNode(%v, %d)", node.ringTime, node.id)
+}
+
+func sleeperComparator(aRaw interface{}, bRaw interface{}) int {
+	a := aRaw.(*sleeperNode)
+	b := bRaw.(*sleeperNode)
+
+	aTime := a.ringTime
+	bTime := b.ringTime
+
+	if bTime.After(*aTime) {
+		return 1
+	}
+	if aTime.After(*bTime) {
+		return -1
+	}
+
+	return 0
 }
