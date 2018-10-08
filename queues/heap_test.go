@@ -45,14 +45,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
-	"time"
 )
-
-func add(addMe int) *time.Time {
-	t := time.Unix(int64(addMe), 0)
-
-	return &t
-}
 
 func cmp(araw interface{}, braw interface{}) int {
 	a := araw.(int)
