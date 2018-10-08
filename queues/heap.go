@@ -73,6 +73,10 @@ type heapData struct {
 	queue      []*heapNode
 }
 
+// NewHeap creates a heap queue, which is an ordered
+// queue where insertion is log(n) and removal is
+// log(n).  Items cannot be removed from the middle.
+// The heap returned is thread-safe
 func NewHeap(c Comparator) Heap {
 	return &heapData{
 		comparator: c,
