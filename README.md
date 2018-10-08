@@ -52,6 +52,7 @@ github.com/jwells131313/goethe.GetGoethe() method.
 1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
 3. [LRU-Style CAR Cache](#car-cache)
+4. [Heap Queue](#heap)
 4. [Recursive Locks](#recursive-locks)
 5. [Thread Pools](#thread-pools)
 6. [Thread Local Storage](#thread-local-storage)
@@ -211,6 +212,63 @@ func CARCache() {
 
 }
 ```
+
+## Queues
+
+[![GoDoc](https://godoc.org/github.com/jwells131313/goethe/queues?status.svg)](https://godoc.org/github.com/jwells131313/goethe/queues)
+
+### Heap
+
+A Heap is an ordered queue data structure where adding items to the queue is a log(n) complexity operation
+and removing items from the queue is a log(n) complexity operation.  Peeking at the next item that would
+be removed is log(1) and should be very quick.  The downside to heaps is that you cannot remove items from
+the middle of the heap.  Also a lot of other priority queue algorithms have faster removal complexities.
+However, it does guarantee a perfectly balanced search tree at all times and so in practice it can
+often be faster than other ordered structures.
+
+Heaps also support two items having keys with no ordering requirements between them.  So, for example
+you can add integers 1, 3, 8, 3, 8, 5 and the result you would get from draining this heap would be
+1, 3, 3, 5, 8, 8.  The 3's and 8's in this example could be returned in any order relative to each other.
+
+This heap implementation is thread-safe (for any threads, not just Goethe threads) and keeps only a slice
+of items of the cardinality of the number of items in the heap, so it's very good about memory space.
+
+```go
+func cmp(araw interface{}, braw interface{}) int {
+	a := araw.(int)
+	b := braw.(int)
+
+	if a < b {
+		return 1
+	}
+	if a == b {
+		return 0
+	}
+
+	return -1
+}
+
+func BuildAHeap(t *testing.T) {
+	heap := NewHeap(cmp)
+
+	heap.Add(1)
+	heap.Add(3)
+	heap.Add(4)
+	heap.Add(2)
+	
+	heap.Peek() // Would return 1
+	
+	heap.Get() // Would return 1
+	heap.Get() // Would return 2
+	heap.Get() // Would return 3
+	heap.Get() // Would return 4
+	
+	heap.Peek() // Would return false, heap is empty
+	heap.Get() // Would return false, heap is empyt
+}
+```
+
+
 
 ## Recursive Locks
 

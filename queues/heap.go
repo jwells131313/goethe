@@ -56,9 +56,19 @@ type Comparator func(a interface{}, b interface{}) int
 // and removal.  You can only remove from the top of a heap, you
 // cannot remove from the middle
 type Heap interface {
+	// Add adds the non-nil item to the heap.  Returns an error if
+	// for some reason the item could not be added
 	Add(interface{}) error
+	// Get removes the next item that should be removed (as determined
+	// by the comparator) and returns it.  Returns true if it returned
+	// a value and false if it did not
 	Get() (interface{}, bool)
+	// Peek looks at the next item that would be removed by Get without
+	// removing it.  Returns true if an item was returned and false if
+	// the heap is empty
 	Peek() (interface{}, bool)
+	// GetComparator returns the comparator used to determine the ordering
+	// of items in the heap
 	GetComparator() Comparator
 }
 
