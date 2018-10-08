@@ -38,37 +38,49 @@
  * holder.
  */
 
-package goethe
+package queues
 
 import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 )
 
-// heapQueue is a queue of durations sorted as least duration first
-// order of add is log n, order of remove is log n
-type heapQueue interface {
-	Add(*time.Time, interface{}) error
-	Get() (*time.Time, interface{}, bool)
-	Peek() (*time.Time, interface{}, bool)
-	String() string
+// Comparator is a function that returns
+// 1 if a should be returned before b
+// 0 if a is the same as b so they can be returned in any order
+// -1 if a should be returned after b
+type Comparator func(a interface{}, b interface{}) int
+
+// Heap is a data structure that has log-n complexity insertion
+// and removal.  You can only remove from the top of a heap, you
+// cannot remove from the middle
+type Heap interface {
+	Add(interface{}) error
+	Get() (interface{}, bool)
+	Peek() (interface{}, bool)
+	GetComparator() Comparator
 }
 
 type heapNode struct {
-	time    *time.Time
+	parent  *heapData
 	payload interface{}
 }
 
-type heapQueueData struct {
-	mux   sync.Mutex
-	queue []*heapNode
+type heapData struct {
+	mux        sync.Mutex
+	comparator Comparator
+	queue      []*heapNode
 }
 
-func newHeap() heapQueue {
-	return &heapQueueData{
-		queue: make([]*heapNode, 0),
+// NewHeap creates a heap queue, which is an ordered
+// queue where insertion is log(n) and removal is
+// log(n).  Items cannot be removed from the middle.
+// The heap returned is thread-safe
+func NewHeap(c Comparator) Heap {
+	return &heapData{
+		comparator: c,
+		queue:      make([]*heapNode, 0),
 	}
 }
 
@@ -86,13 +98,31 @@ func getChildren(index int) (int, int) {
 	return tree + 1, tree + 2
 }
 
-func (heap *heapQueueData) Add(time *time.Time, payload interface{}) error {
+func (node *heapNode) After(bNode *heapNode) bool {
+	a := node.payload
+	b := bNode.payload
+
+	return node.parent.comparator(a, b) < 0
+}
+
+func (node *heapNode) AfterOrEqual(bNode *heapNode) bool {
+	a := node.payload
+	b := bNode.payload
+
+	return node.parent.comparator(a, b) <= 0
+}
+
+func (heap *heapData) GetComparator() Comparator {
+	return heap.comparator
+}
+
+func (heap *heapData) Add(payload interface{}) error {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
 	nextIndex := len(heap.queue)
 	node := &heapNode{
-		time:    time,
+		parent:  heap,
 		payload: payload,
 	}
 	heap.queue = append(heap.queue, node)
@@ -101,7 +131,7 @@ func (heap *heapQueueData) Add(time *time.Time, payload interface{}) error {
 	parentIndex := getParent(nextIndex)
 	currentIndex := nextIndex
 
-	for (parentIndex >= 0) && (heap.getTime(parentIndex).After(*time)) {
+	for (parentIndex >= 0) && (heap.queue[parentIndex].After(node)) {
 		// Must swap
 		heap.queue[parentIndex], heap.queue[currentIndex] = heap.queue[currentIndex], heap.queue[parentIndex]
 
@@ -112,27 +142,21 @@ func (heap *heapQueueData) Add(time *time.Time, payload interface{}) error {
 	return nil
 }
 
-func (heap *heapQueueData) getTime(index int) *time.Time {
-	node := heap.queue[index]
-	return node.time
-}
-
-func (heap *heapQueueData) Get() (*time.Time, interface{}, bool) {
+func (heap *heapData) Get() (interface{}, bool) {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
 	originalLen := len(heap.queue)
 	if originalLen <= 0 {
-		return nil, nil, false
+		return nil, false
 	}
 
-	retVal := heap.queue[0].time
 	retPayload := heap.queue[0].payload
 
 	if originalLen == 1 {
 		// Last one, leave queue empty
 		heap.queue = make([]*heapNode, 0)
-		return retVal, retPayload, true
+		return retPayload, true
 	}
 
 	currentLength := originalLen - 1
@@ -143,37 +167,37 @@ func (heap *heapQueueData) Get() (*time.Time, interface{}, bool) {
 	heap.queue = heap.queue[0:currentLength]
 
 	currentIndex := 0
-	bubbleTime := heap.queue[0].time
+	bubbleNode := heap.queue[0]
 
 	for {
 		leftChild, rightChild := getChildren(currentIndex)
 
 		if leftChild >= currentLength {
 			// We are at the end, no more swaps available
-			return retVal, retPayload, true
+			return retPayload, true
 		}
 
 		if rightChild >= currentLength {
 			// Only one more swap available, do it if we need it and leave
-			if bubbleTime.After(*(heap.getTime(leftChild))) {
+			if bubbleNode.After(heap.queue[leftChild]) {
 				// need to swap
 				heap.queue[currentIndex], heap.queue[leftChild] = heap.queue[leftChild], heap.queue[currentIndex]
 			}
 
 			// no need to continue no more swaps possible
-			return retVal, retPayload, true
+			return retPayload, true
 		}
 
 		// battle royale, both children are there
 		swapIndex := rightChild // The default is to descend to the right if equal
-		if heap.getTime(rightChild).After(*(heap.getTime(leftChild))) {
+		if heap.queue[rightChild].After(heap.queue[leftChild]) {
 			swapIndex = leftChild
 		}
 
-		swapTime := heap.getTime(swapIndex)
-		if swapTime.After(*bubbleTime) {
+		swapNode := heap.queue[swapIndex]
+		if swapNode.AfterOrEqual(bubbleNode) {
 			// Done bubbling down, we can leave
-			return retVal, retPayload, true
+			return retPayload, true
 		}
 
 		// Must swap and continue
@@ -183,36 +207,36 @@ func (heap *heapQueueData) Get() (*time.Time, interface{}, bool) {
 	}
 }
 
-func (heap *heapQueueData) Peek() (*time.Time, interface{}, bool) {
+func (heap *heapData) Peek() (interface{}, bool) {
 	heap.mux.Lock()
 	defer heap.mux.Unlock()
 
 	if len(heap.queue) <= 0 {
-		return nil, nil, false
+		return nil, false
 	}
 
 	node := heap.queue[0]
 
-	return node.time, node.payload, true
+	return node.payload, true
 }
 
-func (heap *heapQueueData) String() string {
+func (heap *heapData) String() string {
 	retVal := make([]string, 0)
 
 	retVal = append(retVal, "[")
 
 	first := true
 	for _, node := range heap.queue {
-		u := node.time.Unix()
+		u := node.payload
 
 		if first {
-			appendMe := fmt.Sprintf("%x", u)
+			appendMe := fmt.Sprintf("%v", u)
 
 			retVal = append(retVal, appendMe)
 
 			first = false
 		} else {
-			appendMe := fmt.Sprintf(",%x", u)
+			appendMe := fmt.Sprintf(",%v", u)
 
 			retVal = append(retVal, appendMe)
 		}

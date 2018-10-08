@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Changed
 - Added new API to Lock for seeing if a lock is read/write locked
+- Added new API in new package (queues) for general Heap algorithm queue
 
 ## [1.1.0] - 2018-09-28
 ### Changed
