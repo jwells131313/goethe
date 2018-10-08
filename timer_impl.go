@@ -42,6 +42,7 @@ package goethe
 
 import (
 	"fmt"
+	"github.com/jwells131313/goethe/queues"
 	"reflect"
 	"sync"
 	"time"
@@ -66,7 +67,7 @@ type timerImpl interface {
 type timerData struct {
 	mux           Lock
 	cond          *sync.Cond
-	heap          heapQueue
+	heap          queues.Heap
 	nextJobNumber int64
 	sleepy        sleeper
 	nextJob       uint64
@@ -89,13 +90,18 @@ type timerJob struct {
 	next *nextJob
 }
 
+type timerNode struct {
+	nextRingTime *time.Time
+	job          *timerJob
+}
+
 // NewTimer creates a timer for use with the goethe scheduler
 func newTimer() timerImpl {
 	goethe := GetGoethe()
 
 	retVal := &timerData{
 		mux:    goethe.NewGoetheLock(),
-		heap:   newHeap(),
+		heap:   queues.NewHeap(timerComparator),
 		sleepy: newSleeper(),
 	}
 
@@ -115,17 +121,20 @@ func (timer *timerData) runOne() bool {
 	timer.mux.Lock()
 	defer timer.mux.Unlock()
 
-	peek, peekNode, found := timer.heap.Peek()
+	nodeRaw, found := timer.heap.Peek()
 	if !found {
 		timer.cond.Wait()
 
 		return true
 	}
 
+	node := nodeRaw.(*timerNode)
+
+	peek := node.nextRingTime
+	pNode := node.job
+
 	now := time.Now()
 	now = now.Add(fudgeFactor)
-
-	pNode := peekNode.(*timerJob)
 
 	// Is it inside the range
 	until := (*peek).Sub(now)
@@ -137,13 +146,14 @@ func (timer *timerData) runOne() bool {
 		return true
 	}
 
-	_, payload, found := timer.heap.Get()
+	payloadNodeRaw, found := timer.heap.Get()
 	if !found {
 		// should never happen because peek said it was there
 		return true
 	}
 
-	job := payload.(*timerJob)
+	payloadNode := payloadNodeRaw.(*timerNode)
+	job := payloadNode.job
 
 	// Ok, time to actually run the job!
 	if !job.IsRunning() {
@@ -180,12 +190,15 @@ func (timer *timerData) scheduleNextWakeUp() {
 	timer.mux.Lock()
 	defer timer.mux.Unlock()
 
-	peek, peekNode, found := timer.heap.Peek()
+	nodeRaw, found := timer.heap.Peek()
 	if !found {
 		return
 	}
 
-	pNode := peekNode.(*timerJob)
+	node := nodeRaw.(*timerNode)
+
+	peek := node.nextRingTime
+	pNode := node.job
 
 	if pNode.next == nil {
 		// Should not be possible, but account for it
@@ -263,7 +276,12 @@ func (timer *timerData) scheduleNext(job *timerJob, nextRingTime *time.Time) err
 
 	job.next = nextRing
 
-	err := timer.heap.Add(nextRingTime, job)
+	node := &timerNode{
+		nextRingTime: nextRingTime,
+		job:          job,
+	}
+
+	err := timer.heap.Add(node)
 	if err != nil {
 		return err
 	}
@@ -292,4 +310,21 @@ func (job *timerJob) IsRunning() bool {
 // GetErrorQueue returns the error queue associated with this timer (may be nil)
 func (job *timerJob) GetErrorQueue() ErrorQueue {
 	return job.errors
+}
+
+func timerComparator(aRaw interface{}, bRaw interface{}) int {
+	a := aRaw.(*timerNode)
+	b := bRaw.(*timerNode)
+
+	aTime := a.nextRingTime
+	bTime := b.nextRingTime
+
+	if bTime.After(*aTime) {
+		return 1
+	}
+	if aTime.After(*bTime) {
+		return -1
+	}
+
+	return 0
 }
