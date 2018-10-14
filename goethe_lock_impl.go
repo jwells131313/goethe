@@ -89,9 +89,22 @@ func (lock *goetheLock) Unlock() {
 // be paired with ReadUnlock.  You may get a ReadLock while holding
 // a WriteLock.  May only be called from inside a Goth thread
 func (lock *goetheLock) ReadLock() error {
+	_, err := lock.TryReadLock(-1)
+	return err
+}
+
+func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
+	if d < -1 {
+		return false, ErrTryLockDurationIllegal
+	}
+
+	if d != -1 && d != 0 {
+		panic("implement TryReadLock")
+	}
+
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return ErrNotGoetheThread
+		return false, ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -100,17 +113,21 @@ func (lock *goetheLock) ReadLock() error {
 	if lock.holdingWriter == tid {
 		// We can go ahead and increment our count and leave
 		lock.incrementReadLock(tid)
-		return nil
+		return true, nil
 	}
 
 	for lock.holdingWriter >= 0 || lock.writersWaiting > 0 {
+		if d == 0 {
+			return false, nil
+		}
+
 		lock.cond.Wait()
 	}
 
 	// At this point holdingWriter < 0 and there are no writersWaiting
 	lock.incrementReadLock(tid)
 
-	return nil
+	return true, nil
 }
 
 func (lock *goetheLock) incrementReadLock(tid int64) {
@@ -182,26 +199,44 @@ func (lock *goetheLock) getMyReadCount(localTid int64) int32 {
 // no more readers will be allowed into the critical section
 // Is a counting lock.  May only be called from inside a Goth thread
 func (lock *goetheLock) WriteLock() error {
+	_, err := lock.TryWriteLock(-1)
+	return err
+}
+
+func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
+	if d < -1 {
+		return false, ErrTryLockDurationIllegal
+	}
+
+	if d != -1 && d != 0 {
+		panic("implement TryWriteLock")
+	}
+
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return ErrNotGoetheThread
+		return false, ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
 
 	if lock.getMyReadCount(tid) != 0 {
-		return ErrReadLockHeld
+		return false, ErrReadLockHeld
 	}
 
 	if lock.holdingWriter == tid {
 		// counting
 		lock.writerCount++
-		return nil
+		return true, nil
 	}
 
 	lock.writersWaiting++
 	for lock.holdingWriter >= 0 || lock.getAllOtherReadCount(tid) > 0 {
+		if d == 0 {
+			lock.writersWaiting--
+			return false, nil
+		}
+
 		lock.cond.Wait()
 	}
 
@@ -210,7 +245,7 @@ func (lock *goetheLock) WriteLock() error {
 
 	lock.writerCount = 1
 	lock.writersWaiting--
-	return nil
+	return true, nil
 }
 
 // WriteUnlock unlocks write lock.  Will only truly leave
@@ -298,12 +333,4 @@ func (lock *goetheLock) internalIsReadLocked() bool {
 	}
 
 	return false
-}
-
-func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
-	panic("implement me")
-}
-
-func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
-	panic("implement me")
 }

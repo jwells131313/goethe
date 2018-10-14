@@ -383,6 +383,70 @@ func TestIsLockedFromNonGThread(t *testing.T) {
 	}
 }
 
+func TestTryReadLockZero(t *testing.T) {
+	bchan := make(chan bool)
+	fchan := make(chan bool)
+
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	ethe.Go(func() {
+		lock.WriteLock()
+		defer lock.WriteUnlock()
+
+		<-bchan
+	})
+
+	ethe.Go(func() {
+		var gotIt bool
+		var err error
+		for lcv := 0; lcv < 20; lcv++ {
+			gotIt, err = lock.TryReadLock(0)
+			if !assert.Nil(t, err, "got error from TryReadLock %v", err) {
+				fchan <- false
+				return
+			}
+			if !gotIt {
+				// This is success, we got a false
+				bchan <- true
+				break
+			}
+
+			// We got the read lock, give it up so writer can get it
+			err = lock.ReadUnlock()
+			if !assert.Nil(t, err, "got error from ReadUnlock %v", err) {
+				fchan <- false
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		if !assert.False(t, gotIt, "should have left without getting lock") {
+			fchan <- false
+			return
+		}
+
+		for lcv := 0; lcv < 20; lcv++ {
+			gotIt, err = lock.TryReadLock(0)
+			if !assert.Nil(t, err, "got error from TryReadLock(2) %v", err) {
+				fchan <- false
+				return
+			}
+			if gotIt {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		fchan <- gotIt
+	})
+
+	result := <-fchan
+
+	assert.True(t, result, "should have been able to get it eventually")
+}
+
 /* ***************************************** Below find utility functions ****************************************** */
 func checkLocks(t *testing.T, read, write bool, lock goethe.Lock) bool {
 	r1 := assert.Equal(t, read, lock.IsReadLocked(), "IsReadLocked did not have correct reply")

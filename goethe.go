@@ -242,12 +242,13 @@ type Lock interface {
 	// true if it acquired the lock in the given duration.  If the duration is zero then it will
 	// return immediately with the answer.  If the duration is -1 it will wait forever.  Other
 	// negative values will cause an error to return
-	// TryReadLock(d time.Duration) (bool, error)
+	TryReadLock(d time.Duration) (bool, error)
+
 	// TryWriteLock will attempt to get the write lock for the given amount of time, returning
 	// true if it acquired the lock in the given duration.  If the duration is zero then it will
 	// return immediately with the answer.  If the duration is -1 it will wait forever.  Other
 	// negative values will cause an error to return
-	// TryWriteLock(d time.Duration) (bool, error)
+	TryWriteLock(d time.Duration) (bool, error)
 }
 
 // FunctionDescriptor describes a function to be called with
@@ -341,6 +342,9 @@ var (
 
 	// ErrNotCalledOnCorrectThread This method was called on a ThreadLocal from a thread other than its own
 	ErrNotCalledOnCorrectThread = errors.New("called from an illegal thread")
+
+	// ErrTryLockDurationIllegal One of the TryLock methods was called with an illegal duration
+	ErrTryLockDurationIllegal = errors.New("illegal duration (< -1) passed to TryLock")
 )
 
 const (
