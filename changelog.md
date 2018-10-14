@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- Added new API to Lock TryWriteLock and TryReadLock which allow for timed
+waiting for the lock to free up
 - Added new API to Lock for seeing if a lock is read/write locked
 - Added new API in new package (queues) for general Heap algorithm queue
 
