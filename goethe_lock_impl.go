@@ -41,6 +41,7 @@
 package goethe
 
 import (
+	"io"
 	"sync"
 	"time"
 )
@@ -48,14 +49,16 @@ import (
 type goetheLock struct {
 	parent *StandardThreadUtilities
 
-	goMux sync.Mutex
-	cond  *sync.Cond
+	goMux   sync.Mutex
+	cond    *sync.Cond
+	sleeper sleeper
 
 	readerCounts map[int64]int32
 
 	holdingWriter  int64
 	writerCount    int32
 	writersWaiting int64
+	jobNumber      uint64
 }
 
 func newReaderWriterLock(pparent *StandardThreadUtilities) Lock {
@@ -63,6 +66,7 @@ func newReaderWriterLock(pparent *StandardThreadUtilities) Lock {
 		parent:        pparent,
 		holdingWriter: -2,
 		readerCounts:  make(map[int64]int32),
+		sleeper:       newSleeper(),
 	}
 
 	retVal.cond = sync.NewCond(&retVal.goMux)
@@ -98,8 +102,10 @@ func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
 		return false, ErrTryLockDurationIllegal
 	}
 
-	if d != -1 && d != 0 {
-		panic("implement TryReadLock")
+	now := time.Now()
+	endTime := now
+	if d > 0 {
+		endTime = endTime.Add(d)
 	}
 
 	tid := lock.parent.GetThreadID()
@@ -116,12 +122,37 @@ func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
 		return true, nil
 	}
 
+	var closeMe io.Closer
+	defer func() {
+		if closeMe != nil {
+			closeMe.Close()
+		}
+	}()
+
 	for lock.holdingWriter >= 0 || lock.writersWaiting > 0 {
-		if d == 0 {
+		if d >= 0 && (now.Equal(endTime) || now.After(endTime)) {
 			return false, nil
 		}
 
+		if d > 0 {
+			remainingDuration := endTime.Sub(now)
+
+			if closeMe != nil {
+				closeMe.Close()
+				closeMe = nil
+			}
+
+			lock.jobNumber++
+			closeMe = lock.sleeper.sleep(remainingDuration, lock.cond, lock.jobNumber)
+		}
+
 		lock.cond.Wait()
+
+		now = time.Now()
+	}
+
+	if closeMe != nil {
+		closeMe.Close()
 	}
 
 	// At this point holdingWriter < 0 and there are no writersWaiting
@@ -208,8 +239,10 @@ func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
 		return false, ErrTryLockDurationIllegal
 	}
 
-	if d != -1 && d != 0 {
-		panic("implement TryWriteLock")
+	now := time.Now()
+	endTime := now
+	if d > 0 {
+		endTime = endTime.Add(d)
 	}
 
 	tid := lock.parent.GetThreadID()
@@ -230,14 +263,35 @@ func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
 		return true, nil
 	}
 
+	var closeMe io.Closer
+	defer func() {
+		if closeMe != nil {
+			closeMe.Close()
+		}
+	}()
+
 	lock.writersWaiting++
 	for lock.holdingWriter >= 0 || lock.getAllOtherReadCount(tid) > 0 {
-		if d == 0 {
+		if d >= 0 && (now.Equal(endTime) || now.After(endTime)) {
 			lock.writersWaiting--
 			return false, nil
 		}
 
+		if d > 0 {
+			remainingDuration := endTime.Sub(now)
+
+			if closeMe != nil {
+				closeMe.Close()
+				closeMe = nil
+			}
+
+			lock.jobNumber++
+			closeMe = lock.sleeper.sleep(remainingDuration, lock.cond, lock.jobNumber)
+		}
+
 		lock.cond.Wait()
+
+		now = time.Now()
 	}
 
 	// I just got this lock for myself

@@ -43,46 +43,48 @@ package goethe
 import (
 	"fmt"
 	"github.com/jwells131313/goethe/queues"
+	"io"
 	"sync"
 	"time"
 )
 
 type sleeper interface {
-	sleep(time.Duration, *sync.Cond, uint64)
+	// sleep with the amount of time to wait, the condition to ring when done, and the job number
+	sleep(time.Duration, *sync.Cond, uint64) io.Closer
 }
 
 type sleeperNode struct {
 	ringTime *time.Time
 	cond     *sync.Cond
 	id       uint64
+	closed   bool
 }
 
 type sleeperImpl struct {
 	heap queues.Heap
-	lock Lock
+	lock sync.Mutex
 	jobs map[uint64]uint64
 }
 
 func newSleeper() sleeper {
 	return &sleeperImpl{
 		heap: queues.NewHeap(sleeperComparator),
-		lock: GetGoethe().NewGoetheLock(),
 		jobs: make(map[uint64]uint64),
 	}
 }
 
-func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNumber uint64) {
+func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNumber uint64) io.Closer {
 	sleepy.lock.Lock()
 	defer sleepy.lock.Unlock()
 
 	if duration < fudgeFactor {
 		cond.Broadcast()
-		return
+		return nil
 	}
 
 	_, has := sleepy.jobs[jobNumber]
 	if has {
-		return
+		return nil
 	}
 
 	sleepy.jobs[jobNumber] = jobNumber
@@ -114,6 +116,8 @@ func (sleepy *sleeperImpl) sleep(duration time.Duration, cond *sync.Cond, jobNum
 	if startNewThread {
 		GetGoethe().Go(sleepy.waiter, duration)
 	}
+
+	return newNode
 }
 
 func (sleepy *sleeperImpl) waiter(duration time.Duration) {
@@ -137,7 +141,9 @@ func (sleepy *sleeperImpl) waiter(duration time.Duration) {
 
 		delete(sleepy.jobs, sn.id)
 
-		sn.cond.Broadcast()
+		if !sn.closed {
+			sn.cond.Broadcast()
+		}
 
 		raw, found = sleepy.heap.Peek()
 		if !found {
@@ -149,6 +155,11 @@ func (sleepy *sleeperImpl) waiter(duration time.Duration) {
 
 		nextFire = time.Until(*fireTime)
 	}
+}
+
+func (node *sleeperNode) Close() error {
+	node.closed = true
+	return nil
 }
 
 func (node *sleeperNode) String() string {
