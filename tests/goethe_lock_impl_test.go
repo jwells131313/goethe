@@ -383,6 +383,198 @@ func TestIsLockedFromNonGThread(t *testing.T) {
 	}
 }
 
+func TestTryReadLockZero(t *testing.T) {
+	bchan := make(chan bool)
+	fchan := make(chan bool)
+
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	ethe.Go(func() {
+		lock.WriteLock()
+		defer lock.WriteUnlock()
+
+		<-bchan
+	})
+
+	ethe.Go(func() {
+		var gotIt bool
+		var err error
+		for lcv := 0; lcv < 20; lcv++ {
+			gotIt, err = lock.TryReadLock(0)
+			if !assert.Nil(t, err, "got error from TryReadLock %v", err) {
+				fchan <- false
+				return
+			}
+			if !gotIt {
+				// This is success, we got a false
+				bchan <- true
+				break
+			}
+
+			// We got the read lock, give it up so writer can get it
+			err = lock.ReadUnlock()
+			if !assert.Nil(t, err, "got error from ReadUnlock %v", err) {
+				fchan <- false
+				return
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		if !assert.False(t, gotIt, "should have left without getting lock") {
+			fchan <- false
+			return
+		}
+
+		for lcv := 0; lcv < 20; lcv++ {
+			gotIt, err = lock.TryReadLock(0)
+			if !assert.Nil(t, err, "got error from TryReadLock(2) %v", err) {
+				fchan <- false
+				return
+			}
+			if gotIt {
+				break
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+
+		fchan <- gotIt
+	})
+
+	result := <-fchan
+
+	assert.True(t, result, "should have been able to get it eventually")
+}
+
+func TestSleepReadLock(t *testing.T) {
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	gchan := make(chan bool)
+	rchan := make(chan bool)
+
+	ethe.Go(func() {
+		lock.WriteLock()
+		defer lock.WriteUnlock()
+
+		gchan <- true
+
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	var now time.Time
+	ethe.Go(func() {
+		<-gchan
+
+		now = time.Now()
+		gotIt, err := lock.TryReadLock(10 * time.Millisecond)
+		if !assert.Nil(t, err, "TryReadLock error %v", err) {
+			rchan <- false
+			return
+		}
+
+		rchan <- gotIt
+
+		gotIt, err = lock.TryReadLock(30 * time.Millisecond)
+		if !assert.Nil(t, err, "TryReadLock error %v", err) {
+			rchan <- false
+			return
+		}
+
+		rchan <- gotIt
+	})
+
+	result := <-rchan
+	if !assert.False(t, result, "should not have gotten after 10 milliseconds") {
+		return
+	}
+
+	// should have been at least 10 milliseconds
+	diff := time.Now().Sub(now)
+	enough := diff >= (10 * time.Millisecond)
+	if !assert.True(t, enough, "Did not wait long enough: %d", diff) {
+		return
+	}
+
+	result = <-rchan
+	if !assert.True(t, result, "should have been able to get it eventually") {
+		return
+	}
+
+	diff = time.Now().Sub(now)
+	enough = diff >= (20*time.Millisecond) && diff < (30*time.Millisecond)
+	if !assert.True(t, enough, "Did not wait long enough: %d", diff) {
+		return
+	}
+
+	t.Logf("Actual milliseconds wait for lock %d", (diff / time.Millisecond))
+}
+
+func TestSleepWriteLock(t *testing.T) {
+	ethe := goethe.GetGoethe()
+	lock := ethe.NewGoetheLock()
+
+	gchan := make(chan bool)
+	rchan := make(chan bool)
+
+	ethe.Go(func() {
+		lock.ReadLock()
+		defer lock.ReadUnlock()
+
+		gchan <- true
+
+		time.Sleep(20 * time.Millisecond)
+	})
+
+	var now time.Time
+	ethe.Go(func() {
+		<-gchan
+
+		now = time.Now()
+		gotIt, err := lock.TryWriteLock(10 * time.Millisecond)
+		if !assert.Nil(t, err, "TryWriteLock error %v", err) {
+			rchan <- false
+			return
+		}
+
+		rchan <- gotIt
+
+		gotIt, err = lock.TryWriteLock(30 * time.Millisecond)
+		if !assert.Nil(t, err, "TryWriteLock error %v", err) {
+			rchan <- false
+			return
+		}
+
+		rchan <- gotIt
+	})
+
+	result := <-rchan
+	if !assert.False(t, result, "should not have gotten after 10 milliseconds") {
+		return
+	}
+
+	// should have been at least 10 milliseconds
+	diff := time.Now().Sub(now)
+	enough := diff >= (10 * time.Millisecond)
+	if !assert.True(t, enough, "Did not wait long enough: %d", diff) {
+		return
+	}
+
+	result = <-rchan
+	if !assert.True(t, result, "should have been able to get it eventually") {
+		return
+	}
+
+	diff = time.Now().Sub(now)
+	enough = diff >= (20*time.Millisecond) && diff < (30*time.Millisecond)
+	if !assert.True(t, enough, "Did not wait long enough: %d", diff) {
+		return
+	}
+
+	t.Logf("Actual milliseconds wait for write lock %d", (diff / time.Millisecond))
+}
+
 /* ***************************************** Below find utility functions ****************************************** */
 func checkLocks(t *testing.T, read, write bool, lock goethe.Lock) bool {
 	r1 := assert.Equal(t, read, lock.IsReadLocked(), "IsReadLocked did not have correct reply")

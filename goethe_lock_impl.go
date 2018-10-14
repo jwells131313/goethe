@@ -41,6 +41,7 @@
 package goethe
 
 import (
+	"io"
 	"sync"
 	"time"
 )
@@ -48,14 +49,16 @@ import (
 type goetheLock struct {
 	parent *StandardThreadUtilities
 
-	goMux sync.Mutex
-	cond  *sync.Cond
+	goMux   sync.Mutex
+	cond    *sync.Cond
+	sleeper sleeper
 
 	readerCounts map[int64]int32
 
 	holdingWriter  int64
 	writerCount    int32
 	writersWaiting int64
+	jobNumber      uint64
 }
 
 func newReaderWriterLock(pparent *StandardThreadUtilities) Lock {
@@ -63,6 +66,7 @@ func newReaderWriterLock(pparent *StandardThreadUtilities) Lock {
 		parent:        pparent,
 		holdingWriter: -2,
 		readerCounts:  make(map[int64]int32),
+		sleeper:       newSleeper(),
 	}
 
 	retVal.cond = sync.NewCond(&retVal.goMux)
@@ -89,9 +93,24 @@ func (lock *goetheLock) Unlock() {
 // be paired with ReadUnlock.  You may get a ReadLock while holding
 // a WriteLock.  May only be called from inside a Goth thread
 func (lock *goetheLock) ReadLock() error {
+	_, err := lock.TryReadLock(-1)
+	return err
+}
+
+func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
+	if d < -1 {
+		return false, ErrTryLockDurationIllegal
+	}
+
+	now := time.Now()
+	endTime := now
+	if d > 0 {
+		endTime = endTime.Add(d)
+	}
+
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return ErrNotGoetheThread
+		return false, ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
@@ -100,17 +119,46 @@ func (lock *goetheLock) ReadLock() error {
 	if lock.holdingWriter == tid {
 		// We can go ahead and increment our count and leave
 		lock.incrementReadLock(tid)
-		return nil
+		return true, nil
 	}
 
+	var closeMe io.Closer
+	defer func() {
+		if closeMe != nil {
+			closeMe.Close()
+		}
+	}()
+
 	for lock.holdingWriter >= 0 || lock.writersWaiting > 0 {
+		if d >= 0 && (now.Equal(endTime) || now.After(endTime)) {
+			return false, nil
+		}
+
+		if d > 0 {
+			remainingDuration := endTime.Sub(now)
+
+			if closeMe != nil {
+				closeMe.Close()
+				closeMe = nil
+			}
+
+			lock.jobNumber++
+			closeMe = lock.sleeper.sleep(remainingDuration, lock.cond, lock.jobNumber)
+		}
+
 		lock.cond.Wait()
+
+		now = time.Now()
+	}
+
+	if closeMe != nil {
+		closeMe.Close()
 	}
 
 	// At this point holdingWriter < 0 and there are no writersWaiting
 	lock.incrementReadLock(tid)
 
-	return nil
+	return true, nil
 }
 
 func (lock *goetheLock) incrementReadLock(tid int64) {
@@ -182,27 +230,68 @@ func (lock *goetheLock) getMyReadCount(localTid int64) int32 {
 // no more readers will be allowed into the critical section
 // Is a counting lock.  May only be called from inside a Goth thread
 func (lock *goetheLock) WriteLock() error {
+	_, err := lock.TryWriteLock(-1)
+	return err
+}
+
+func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
+	if d < -1 {
+		return false, ErrTryLockDurationIllegal
+	}
+
+	now := time.Now()
+	endTime := now
+	if d > 0 {
+		endTime = endTime.Add(d)
+	}
+
 	tid := lock.parent.GetThreadID()
 	if tid < 0 {
-		return ErrNotGoetheThread
+		return false, ErrNotGoetheThread
 	}
 
 	lock.goMux.Lock()
 	defer lock.goMux.Unlock()
 
 	if lock.getMyReadCount(tid) != 0 {
-		return ErrReadLockHeld
+		return false, ErrReadLockHeld
 	}
 
 	if lock.holdingWriter == tid {
 		// counting
 		lock.writerCount++
-		return nil
+		return true, nil
 	}
+
+	var closeMe io.Closer
+	defer func() {
+		if closeMe != nil {
+			closeMe.Close()
+		}
+	}()
 
 	lock.writersWaiting++
 	for lock.holdingWriter >= 0 || lock.getAllOtherReadCount(tid) > 0 {
+		if d >= 0 && (now.Equal(endTime) || now.After(endTime)) {
+			lock.writersWaiting--
+			return false, nil
+		}
+
+		if d > 0 {
+			remainingDuration := endTime.Sub(now)
+
+			if closeMe != nil {
+				closeMe.Close()
+				closeMe = nil
+			}
+
+			lock.jobNumber++
+			closeMe = lock.sleeper.sleep(remainingDuration, lock.cond, lock.jobNumber)
+		}
+
 		lock.cond.Wait()
+
+		now = time.Now()
 	}
 
 	// I just got this lock for myself
@@ -210,7 +299,7 @@ func (lock *goetheLock) WriteLock() error {
 
 	lock.writerCount = 1
 	lock.writersWaiting--
-	return nil
+	return true, nil
 }
 
 // WriteUnlock unlocks write lock.  Will only truly leave
@@ -298,12 +387,4 @@ func (lock *goetheLock) internalIsReadLocked() bool {
 	}
 
 	return false
-}
-
-func (lock *goetheLock) TryReadLock(d time.Duration) (bool, error) {
-	panic("implement me")
-}
-
-func (lock *goetheLock) TryWriteLock(d time.Duration) (bool, error) {
-	panic("implement me")
 }
