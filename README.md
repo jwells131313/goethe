@@ -268,8 +268,6 @@ func BuildAHeap(t *testing.T) {
 }
 ```
 
-
-
 ## Recursive Locks
 
 In goethe threads you can have recursive reader/write mutexes which obey the following rules:
@@ -282,6 +280,7 @@ In goethe threads you can have recursive reader/write mutexes which obey the fol
 * When holding a reader lock you may not acquire a writer lock.  Doing so leads too easily to deadlocks
 * When holding a writer lock you may acquire a reader lock
 * Once a writer asks for the lock no more readers will be able to enter, so writers can starve readers
+* There are TryReadLock and TryWriteLock methods which provide timeouts for acquiring the lock
 
 The following is an example of a recursive write lock
 ```go
