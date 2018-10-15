@@ -227,9 +227,9 @@ func CARCache() {
 
 ### Heap
 
-A Heap is an ordered queue data structure where adding items to the queue is a log(n) complexity operation
-and removing items from the queue is a log(n) complexity operation.  Peeking at the next item that would
-be removed is log(1) and should be very quick.  The downside to heaps is that you cannot remove items from
+A Heap is an ordered queue data structure where adding items to the queue is a O(log(n)) complexity operation
+and removing items from the queue is a O(log(n)) complexity operation.  Peeking at the next item that would
+be removed is O(1) and should be very quick.  The downside to heaps is that you cannot remove items from
 the middle of the heap.  Also a lot of other priority queue algorithms have faster removal complexities.
 However, it does guarantee a perfectly balanced search tree at all times and so in practice it can
 often be faster than other ordered structures.
