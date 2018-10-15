@@ -53,10 +53,10 @@ github.com/jwells131313/goethe.GetGoethe() method.
 2. [Cache](#in-memory-computable-cache)
 3. [LRU-Style CAR Cache](#car-cache)
 4. [Heap Queue](#heap)
-4. [Recursive Locks](#recursive-locks)
-5. [Thread Pools](#thread-pools)
+5. [Recursive Locks](#recursive-locks)
 6. [Thread Local Storage](#thread-local-storage)
 7. [Timers](#timers)
+8. [Thread Pools](#thread-pools)
 
 ### ThreadID
 
@@ -270,7 +270,7 @@ func BuildAHeap(t *testing.T) {
 
 ## Recursive Locks
 
-In goethe threads you can have recursive reader/write mutexes which obey the following rules:
+In goethe threads you can have recursive read/write mutexes which obey the following rules:
 
 * Only one writer lock is allowed into the critical section
 * When holding a writer lock on a thread another writer lock may be acquired on the same thread (counting)
@@ -312,6 +312,65 @@ func main() {
 
 If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
 will return an error.
+
+## Thread Local Storage
+
+Goethe threads can take advantage of named thread local storage.  Thread local storage can be first
+established by giving it a name, an initializer function and a destroyer function.  Then
+in your goethe threads you can call GetThreadLocal with the name of your thread local and get
+the type returned by the initializer.  Each thread has its own copy of the type so two threads
+will not interfere with each other.  When the thread goes away the destructor for all named
+thread local storage associated with that thread will be called.
+
+The example in the Timers section below uses a thread local to get the
+Timer object from inside the thread.
+
+### Timers
+
+Goethe provides timer threads that run user code periodically.  There are two types of timers, one
+with fixed delay and one with fixed rate.
+
+A fixed delay timer will start the next timer once the user code has run to completion.  So
+long running user code will cause the timer to not be invoked again until the user code has
+completed and the delay period has passed again.  This timer is started with the
+ThreadUtilities.ScheduleWithFixedDelay method
+
+A fixed rate timer will run every multiple of the given period, whether or not the user code
+from previous runs of the timer have completed (on different Goethe threads).  This
+allows for stricter control of the scheduling of the timer, but the user code must be written
+with the knowledge that it could be run again on another thread.
+
+Both timers set a ThreadLocalStorage variable named **goethe.Timer** (also held in the
+goethe.TimerThreadLocal variable).  This makes it easy to give the running timer code the
+ability to cancel the timer itself.
+
+In the following example a bell is run every five minutes 12 times, after which time the
+thread itself cancels the timer.
+
+```go
+var count int
+
+// RunClockForOneHour ringing a bell every five minutes
+func RunClockForOneHour() {
+	ethe := utilities.GetGoethe()
+
+	ethe.ScheduleAtFixedRate(0, 5*time.Minute, nil, ringBell)
+}
+
+func ringBell() {
+	count++
+	if count >= 12 {
+		ethe := utilities.GetGoethe()
+
+		tl, _ := ethe.GetThreadLocal(goethe.TimerThreadLocal)
+		i, _ := tl.Get()
+		timer := i.(goethe.Timer)
+		timer.Cancel()
+	}
+
+	fmt.Printf("Bell at count %d\a\n", count)
+}
+```
 
 ## Thread Pools
 
@@ -480,70 +539,11 @@ func (poolInstance *poolExample) randomWork(rand *rand.Rand) error {
 One thing to notice is that use of the recursive writeLock is made safely and correctly!  No
 critical sections were harmed in the making of this example!
 
-## Thread Local Storage
-
-Goethe threads can take advantage of named thread local storage.  Thread local storage can be first
-established by giving it a name, an initializer function and a destroyer function.  Then
-in your goethe threads you can call GetThreadLocal with the name of your thread local and get
-the type returned by the initializer.  Each thread has its own copy of the type so two threads
-will not interfere with each other.  When the thread goes away the destructor for all named
-thread local storage associated with that thread will be called.
-
-The example in the Timers section below uses a thread local to get the
-Timer object from inside the thread.
-
-### Timers
-
-Goethe provides timer threads that run user code periodically.  There are two types of timers, one
-with fixed delay and one with fixed rate.
-
-A fixed delay timer will start the next timer once the user code has run to completion.  So
-long running user code will cause the timer to not be invoked again until the user code has
-completed and the delay period has passed again.  This timer is started with the
-ThreadUtilities.ScheduleWithFixedDelay method
-
-A fixed rate timer will run every multiple of the given period, whether or not the user code
-from previous runs of the timer have completed (on different Goethe threads).  This
-allows for stricter control of the scheduling of the timer, but the user code must be written
-with the knowledge that it could be run again on another thread.
-
-Both timers set a ThreadLocalStorage variable named **goethe.Timer** (also held in the
-goethe.TimerThreadLocal variable).  This makes it easy to give the running timer code the
-ability to cancel the timer itself.
-
-In the following example a bell is run every five minutes 12 times, after which time the
-thread itself cancels the timer.
-
-```go
-var count int
-
-// RunClockForOneHour ringing a bell every five minutes
-func RunClockForOneHour() {
-	ethe := utilities.GetGoethe()
-
-	ethe.ScheduleAtFixedRate(0, 5*time.Minute, nil, ringBell)
-}
-
-func ringBell() {
-	count++
-	if count >= 12 {
-		ethe := utilities.GetGoethe()
-
-		tl, _ := ethe.GetThreadLocal(goethe.TimerThreadLocal)
-		i, _ := tl.Get()
-		timer := i.(goethe.Timer)
-		timer.Cancel()
-	}
-
-	fmt.Printf("Bell at count %d\a\n", count)
-}
-```
-
 ## Under Construction
 
 In the future it is intended for goethe to provide the following:
 
-* locks you can try
 * locks you can give up on after some duration
+* Other queuing utilities
 
 ![](https://github.com/jwells131313/goethe/blob/master/images/goth.jpg "Go Thread Utilities")
