@@ -126,6 +126,10 @@ The cache package contains methods to create an in-memory computable cache.  A c
 is a cache where the values can be computed directly from the keys.  A computable cache is useful when the
 computation to generate the values are resource intensive and can be re-used when the key is the same.
 
+This cache allows for recursive execution, meaning that the Compute method of the cache can be called from
+inside the compute function given to the cache.  If doing so leads to a cycle (key A asks for key B asks for
+key C asks for key A) an error will be returned.
+
 In this example the cache is used to avoid long think times when calculating the value for the given key:
 
 ```go
@@ -167,6 +171,10 @@ than LRU caches.  For more information see
 When you create a CAR cache you provide a max number.  The number of values the CAR cache
 will keep is max, but it might keep up to (2 * max) keys, as part of the algorithm keeps
 a history of previous keys seen.
+
+This cache allows for recursive execution, meaning that the Compute method of the cache can be called from
+inside the compute function given to the cache.  If doing so leads to a cycle (key A asks for key B asks for
+key C asks for key A) an error will be returned.
 
 This example shows that one of the keys is dropped when the number of keys is greater than
 max.  In this simple example the CAR cache behaves like an LRU.  The CAR cache starts performing
