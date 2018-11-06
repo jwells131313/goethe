@@ -66,7 +66,8 @@ type carCache struct {
 // calculator: the computable to run in order to discover the value from the key
 // cycleHandler: the handler to call if a cycle is detected during value generation
 // destructor: A method to call on a key/value being removed from the cache due to a Compute call
-// The destructor will NOT be called for the Remove method
+// The destructor will NOT be called for the Remove method.  Any error returned by the destructor
+// will be returned by the Compute call, but the Compute call will have performed the computation
 func NewCARCacheWithDestructor(max int, calculator Computable, cycleHandler CycleHandler,
 	destructor func(key, value interface{}) error) (Cache, error) {
 	return &carCache{
@@ -106,7 +107,8 @@ func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cac
 // max: The maximum number of values in the cache
 // calculator: the function to run to generate the value from the key
 // destructor: A method to call on a key/value being removed from the cache due to a Compute call
-// The destructor will NOT be called for the Remove method
+// The destructor will NOT be called for the Remove method.  Any error returned by the destructor
+// will be returned by the Compute call, but the Compute call will have performed the computation
 func NewComputeFunctionCARCacheWithDestructor(max int, calculator func(key interface{}) (interface{}, error),
 	destructor func(key, value interface{}) error) (Cache, error) {
 	calc := &basicComputer{
