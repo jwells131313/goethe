@@ -52,16 +52,24 @@ type carCache struct {
 	T2           carClock
 	B1           lruKeyMap
 	B2           lruKeyMap
+	destructor   func(key, value interface{}) error
 }
 
-// NewCARCache creates a compute-function in-memory cache where the values
+// NewCARCacheWithDestructor creates a compute-function in-memory cache where the values
 // are only ever instantiated once until they are removed.
 // The maximum size of the values held in the cache is given
 // by max.  This cache uses the CAR algorithm to determine which keys are removed from the
 // cache when space is exhausted.
 //
 // The CAR algorithm keeps at most max values but up to 2 * max the number of keys
-func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cache, error) {
+// max: The maximum number of values in the cache
+// calculator: the computable to run in order to discover the value from the key
+// cycleHandler: the handler to call if a cycle is detected during value generation
+// destructor: A method to call on a key/value being removed from the cache due to a Compute call
+// The destructor will NOT be called for the Remove method.  Any error returned by the destructor
+// will be returned by the Compute call, but the Compute call will have performed the computation
+func NewCARCacheWithDestructor(max int, calculator Computable, cycleHandler CycleHandler,
+	destructor func(key, value interface{}) error) (Cache, error) {
 	return &carCache{
 		lock:         gd.NewGoetheLock(),
 		calculator:   calculator,
@@ -71,7 +79,43 @@ func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cac
 		T2:           newCarClock(),
 		B1:           newLRUKeyMap(),
 		B2:           newLRUKeyMap(),
+		destructor:   destructor,
 	}, nil
+}
+
+// NewCARCache creates a compute-function in-memory cache where the values
+// are only ever instantiated once until they are removed.
+// The maximum size of the values held in the cache is given
+// by max.  This cache uses the CAR algorithm to determine which keys are removed from the
+// cache when space is exhausted.
+//
+// The CAR algorithm keeps at most max values but up to 2 * max the number of keys
+// max: The maximum number of values in the cache
+// calculator: the computable to run in order to discover the value from the key
+// cycleHandler: the handler to call if a cycle is detected during value generation
+func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cache, error) {
+	return NewCARCacheWithDestructor(max, calculator, cycleHandler, nil)
+}
+
+// NewComputeFunctionCARCacheWithDestructor creates a compute-function in-memory CAR cache where the values
+// are only ever instantiated once until they are removed.
+// The maximum size of the values held in the cache is given
+// by max.  This cache uses the CAR algorithm to determine which keys are removed from the
+// cache when space is exhausted.
+//
+// The CAR algorithm keeps at most max values but up to 2 * max the number of keys
+// max: The maximum number of values in the cache
+// calculator: the function to run to generate the value from the key
+// destructor: A method to call on a key/value being removed from the cache due to a Compute call
+// The destructor will NOT be called for the Remove method.  Any error returned by the destructor
+// will be returned by the Compute call, but the Compute call will have performed the computation
+func NewComputeFunctionCARCacheWithDestructor(max int, calculator func(key interface{}) (interface{}, error),
+	destructor func(key, value interface{}) error) (Cache, error) {
+	calc := &basicComputer{
+		calcFunc: calculator,
+	}
+
+	return NewCARCacheWithDestructor(max, calc, nil, destructor)
 }
 
 // NewComputeFunctionCARCache creates a compute-function in-memory CAR cache where the values
@@ -81,12 +125,14 @@ func NewCARCache(max int, calculator Computable, cycleHandler CycleHandler) (Cac
 // cache when space is exhausted.
 //
 // The CAR algorithm keeps at most max values but up to 2 * max the number of keys
+// max: The maximum number of values in the cache
+// calculator: the function to run to generate the value from the key
 func NewComputeFunctionCARCache(max int, calculator func(key interface{}) (interface{}, error)) (Cache, error) {
 	calc := &basicComputer{
 		calcFunc: calculator,
 	}
 
-	return NewCARCache(max, calc, nil)
+	return NewCARCacheWithDestructor(max, calc, nil, nil)
 }
 
 func (cc *carCache) Compute(key interface{}) (interface{}, error) {
@@ -216,7 +262,7 @@ func (cc *carCache) internalCompute(key interface{}) (interface{}, error) {
 	totalCacheSize := cc.T1.Size() + cc.T2.Size()
 	if totalCacheSize >= cc.max {
 		// choose and remove a value from T1 or T2 and put it in B1 or B2
-		cc.replace()
+		err = cc.replace()
 
 		if !cc.isXInB(key) {
 			t1Size := cc.T1.Size()
@@ -261,7 +307,7 @@ func (cc *carCache) internalCompute(key interface{}) (interface{}, error) {
 		}
 	}
 
-	return value, nil
+	return value, err
 }
 
 func (cc *carCache) channelSize(retChan chan int) {
@@ -337,7 +383,7 @@ func (cc *carCache) isXInB(key interface{}) bool {
 	return cc.B1.Contains(key) || cc.B2.Contains(key)
 }
 
-func (cc *carCache) replace() {
+func (cc *carCache) replace() error {
 	localP := max(1, cc.p)
 
 	for {
@@ -346,10 +392,14 @@ func (cc *carCache) replace() {
 		if t1Size >= localP {
 			if !cc.T1.GetPageReferenceOfHead() {
 				// found in recency
-				key, _, _ := cc.T1.RemoveHead()
+				key, value, _ := cc.T1.RemoveHead()
 				cc.B1.AddMRU(key)
 
-				return
+				if cc.destructor != nil && value != nil {
+					return cc.destructor(key, value)
+				}
+
+				return nil
 			}
 
 			// Promoting to T2
@@ -359,10 +409,14 @@ func (cc *carCache) replace() {
 		} else {
 			if !cc.T2.GetPageReferenceOfHead() {
 				// found in frequency
-				key, _, _ := cc.T2.RemoveHead()
+				key, value, _ := cc.T2.RemoveHead()
 				cc.B2.AddMRU(key)
 
-				return
+				if cc.destructor != nil && value != nil {
+					return cc.destructor(key, value)
+				}
+
+				return nil
 			}
 
 			// Clocks it front to back, but with bit set to false now

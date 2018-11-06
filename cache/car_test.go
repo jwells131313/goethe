@@ -41,6 +41,7 @@
 package cache
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
@@ -188,6 +189,124 @@ func TestAddElevenToCacheSizeTenForwardThenBackward(t *testing.T) {
 	assert.Equal(t, 1, getB2Size(carCache))
 
 	assert.Equal(t, 0, getP(carCache))
+}
+
+func TestCARDestructor(t *testing.T) {
+	var deletedKey, deletedValue interface{}
+
+	carCache, err := NewCARCacheWithDestructor(5, &iConversionType{}, nil,
+		func(k, v interface{}) error {
+			deletedKey = k
+			deletedValue = v
+			return nil
+		})
+	if !assert.Nil(t, err, "could not create car cache") {
+		return
+	}
+
+	carCache.Compute(zero)
+	carCache.Compute(one)
+	carCache.Compute(two)
+	carCache.Compute(three)
+	carCache.Compute(four)
+	carCache.Compute(five)
+
+	// Should have deleted zero
+	assert.Equal(t, zero, deletedKey)
+	assert.Equal(t, 0, deletedValue)
+}
+
+func TestCARFunctionDestructor(t *testing.T) {
+	var deletedKey, deletedValue interface{}
+
+	carCache, err := NewComputeFunctionCARCacheWithDestructor(5,
+		func(key interface{}) (interface{}, error) {
+			skey := key.(string)
+
+			return strconv.Atoi(skey)
+		},
+		func(k, v interface{}) error {
+			deletedKey = k
+			deletedValue = v
+			return nil
+		})
+	if !assert.Nil(t, err, "could not create car cache") {
+		return
+	}
+
+	carCache.Compute(zero)
+	carCache.Compute(one)
+	carCache.Compute(two)
+	carCache.Compute(three)
+	carCache.Compute(four)
+	carCache.Compute(five)
+
+	// Should have deleted zero
+	assert.Equal(t, zero, deletedKey)
+	assert.Equal(t, 0, deletedValue)
+}
+
+func TestCARDestructorWithError(t *testing.T) {
+	var deletedKey, deletedValue interface{}
+	expectedError := fmt.Errorf("expected error")
+
+	carCache, err := NewCARCacheWithDestructor(5, &iConversionType{}, nil,
+		func(k, v interface{}) error {
+			deletedKey = k
+			deletedValue = v
+			return expectedError
+		})
+	if !assert.Nil(t, err, "could not create car cache") {
+		return
+	}
+
+	val, err := carCache.Compute(zero)
+	if !assert.Nil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 0, val, "incorrect value") {
+		return
+	}
+	val, err = carCache.Compute(one)
+	if !assert.Nil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 1, val, "incorrect value") {
+		return
+	}
+	val, err = carCache.Compute(two)
+	if !assert.Nil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 2, val, "incorrect value") {
+		return
+	}
+	val, err = carCache.Compute(three)
+	if !assert.Nil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 3, val, "incorrect value") {
+		return
+	}
+	val, err = carCache.Compute(four)
+	if !assert.Nil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 4, val, "incorrect value") {
+		return
+	}
+	val, err = carCache.Compute(five)
+	if !assert.NotNil(t, err, "compute failed") {
+		return
+	}
+	if !assert.Equal(t, 5, val, "incorrect value") {
+		return
+	}
+
+	// Should have deleted zero
+	assert.Equal(t, zero, deletedKey)
+	assert.Equal(t, 0, deletedValue)
+	assert.Equal(t, expectedError, err, "error does not match")
 }
 
 func TestTakeOffOfB2(t *testing.T) {
