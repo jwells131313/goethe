@@ -215,6 +215,36 @@ func TestCARDestructor(t *testing.T) {
 	assert.Equal(t, 0, deletedValue)
 }
 
+func TestCARFunctionDestructor(t *testing.T) {
+	var deletedKey, deletedValue interface{}
+
+	carCache, err := NewComputeFunctionCARCacheWithDestructor(5,
+		func(key interface{}) (interface{}, error) {
+			skey := key.(string)
+
+			return strconv.Atoi(skey)
+		},
+		func(k, v interface{}) error {
+			deletedKey = k
+			deletedValue = v
+			return nil
+		})
+	if !assert.Nil(t, err, "could not create car cache") {
+		return
+	}
+
+	carCache.Compute(zero)
+	carCache.Compute(one)
+	carCache.Compute(two)
+	carCache.Compute(three)
+	carCache.Compute(four)
+	carCache.Compute(five)
+
+	// Should have deleted zero
+	assert.Equal(t, zero, deletedKey)
+	assert.Equal(t, 0, deletedValue)
+}
+
 func TestTakeOffOfB2(t *testing.T) {
 	runTest(t, takeOffOfB2, 10, 11, 0, 10, 1, 0, 0)
 }
