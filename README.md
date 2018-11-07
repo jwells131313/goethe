@@ -221,6 +221,11 @@ func CARCache() {
 }
 ```
 
+You can provide destructor functions to the CAR cache which will be invoked whenever the Compute method of
+the cache removes a value.  This allows users to clean up any resources held in the values of the cache
+when those values are released.  See [NewCARCacheWithDestructor](https://godoc.org/github.com/jwells131313/goethe/cache#NewCARCacheWithDestructor)
+and [NewComputeFunctionCARCacheWithDestructor](https://godoc.org/github.com/jwells131313/goethe/cache#NewComputeFunctionCARCacheWithDestructor).
+
 ## Queues
 
 [![GoDoc](https://godoc.org/github.com/jwells131313/goethe/queues?status.svg)](https://godoc.org/github.com/jwells131313/goethe/queues)
