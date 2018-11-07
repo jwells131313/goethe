@@ -6,6 +6,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+
+## [1.3.0] - 2018-11-07
+### Changed
 - Added API to add a destructor function to the CAR cache for destroying a value when it is removed from the cache
 
 ## [1.2.0] - 2018-10-16
