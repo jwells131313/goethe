@@ -102,6 +102,15 @@ type timerHeapData struct {
 	cond         *sync.Cond
 }
 
+// NewTimerHeap creates a Timer "heap" which is simply a set of jobs to
+// be run at some time, where the intent is to minimize the number of
+// outstanding timers.  In general there will be one timer running per
+// named TimerHeap, although at certain times there can ephemerally be
+// more than one.  If the input errorChannel is not nil then if the
+// function given to the job's last return argument is a non-nill
+// implementation of error it will be put onto that channel.  name
+// is purely a convenience, no check is done to ensure some other
+// timer heap with the same name doesn't already exist
 func NewTimerHeap(name string, errorChannel chan error) TimerHeap {
 	retVal := &timerHeapData{
 		heap:         queues.NewHeap(jobComparator),
@@ -336,8 +345,6 @@ func (thd *timerHeapData) doAllCurrentJobs() bool {
 
 		job.Cancel()
 	}
-
-	return true
 }
 
 func jobComparator(a interface{}, b interface{}) int {

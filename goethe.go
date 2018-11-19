@@ -51,6 +51,7 @@ import (
 	"time"
 )
 
+// Canceller Things that can be cancelled can implement this interface
 type Canceller interface {
 	// Cancel cancels a service
 	Cancel()
