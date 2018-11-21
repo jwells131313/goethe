@@ -38,18 +38,17 @@
  * holder.
  */
 
-package main
+package timers
 
 import (
 	"fmt"
-	"github.com/jwells131313/goethe/timers"
 	"time"
 )
 
 func ExampleTimerHeap() {
 	// We don't use the error channel, but it's here for demonstration
 	errChan := make(chan error)
-	timer := timers.NewTimerHeap(errChan)
+	timer := NewTimerHeap(errChan)
 	defer timer.Cancel()
 
 	// Print Hello World after waiting one millisecond!
