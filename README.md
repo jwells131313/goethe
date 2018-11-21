@@ -55,8 +55,9 @@ github.com/jwells131313/goethe.GetGoethe() method.
 4. [Heap Queue](#heap)
 5. [Recursive Locks](#recursive-locks)
 6. [Thread Local Storage](#thread-local-storage)
-7. [Timers](#timers)
-8. [Thread Pools](#thread-pools)
+7. [Timer Heap](#timer-heap)
+8. [Timers](#timers)
+9. [Thread Pools](#thread-pools)
 
 ### ThreadID
 
@@ -326,7 +327,7 @@ func main() {
 If you try to call a Lock or Unlock method of a goethe lock while not inside a goethe thread it
 will return an error.
 
-## Thread Local Storage
+### Thread Local Storage
 
 Goethe threads can take advantage of named thread local storage.  Thread local storage can be first
 established by giving it a name, an initializer function and a destroyer function.  Then
@@ -337,6 +338,42 @@ thread local storage associated with that thread will be called.
 
 The example in the Timers section below uses a thread local to get the
 Timer object from inside the thread.
+
+### Timer Heap
+
+[![GoDoc](https://godoc.org/github.com/jwells131313/goethe/timers?status.svg)](https://godoc.org/github.com/jwells131313/goethe/timers)
+
+A Timer Heap is a data structure of timers whose intent is to minimize the number of outstanding
+timers being created by the system.  In general no matter how many jobs have been put onto a
+Timer Heap there will be one outstanding running golang timer.
+
+The function given to the timer heap to run will be run in goethe threads when their timer expires.
+
+The following example prints out a friendly message after 1 millisecond!
+
+```go
+func ExampleTimerHeap() {
+	// We don't use the error channel, but it's here for demonstration
+	errChan := make(chan error)
+	
+	// Create a new timer!
+	timer := timers.NewTimerHeap(errChan)
+	
+	// Don't forget to cancel the timer when you are done with the timer heap
+	defer timer.Cancel()
+
+	// Print Hello World after waiting one millisecond!
+	timer.AddJobByDuration(time.Millisecond, func() error {
+		fmt.Println("Hello World!")
+		return nil
+	})
+
+	// Sleep 500 to give it plenty of time to print out
+	time.Sleep(time.Duration(500) * time.Millisecond)
+
+	// Output: Hello World!
+}
+```
 
 ### Timers
 
