@@ -51,13 +51,18 @@ import (
 	"time"
 )
 
-// Timer represents information about a timer
-type Timer interface {
-	// Cancel cancels the timer
+// Canceller Things that can be cancelled can implement this interface
+type Canceller interface {
+	// Cancel cancels a service
 	Cancel()
 
-	// IsRunning true if this timer is running, false if it has been cancelled
+	// IsRunning true if this service is running, false if it has been cancelled
 	IsRunning() bool
+}
+
+// Timer represents information about a timer
+type Timer interface {
+	Canceller
 
 	// GetErrorQueue returns the error queue associated with this timer (may be nil)
 	GetErrorQueue() ErrorQueue
