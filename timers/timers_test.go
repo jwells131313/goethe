@@ -41,6 +41,7 @@
 package timers
 
 import (
+	"fmt"
 	"github.com/stretchr/testify/assert"
 	"sync/atomic"
 	"testing"
@@ -93,4 +94,46 @@ func TestTimersGoOff(t *testing.T) {
 	assert.False(t, job1.IsRunning())
 	assert.False(t, job2.IsRunning())
 	assert.False(t, job3.IsRunning())
+}
+
+const expectedErrorString = "Expected One"
+
+func TestErrorChannel(t *testing.T) {
+	eChan := make(chan error)
+	timer := NewTimerHeap(eChan)
+
+	timer.AddJobByTime(time.Now(), func() error {
+		return fmt.Errorf(expectedErrorString)
+	})
+
+	err := <-timer.GetErrorChannel()
+	if !assert.NotNil(t, err) {
+		return
+	}
+
+	assert.Equal(t, expectedErrorString, err.Error())
+}
+
+const iterations int32 = 20
+
+func TestLotsAtOnce(t *testing.T) {
+	eChan := make(chan error)
+	timer := NewTimerHeap(eChan)
+
+	timeToFire := time.Now().Add(time.Duration(500) * time.Millisecond)
+	for lcv := int32(0); lcv < iterations; lcv++ {
+		timer.AddJobByTime(timeToFire, doIncrement)
+	}
+
+	// Should really all be done in 1 second
+	time.Sleep(getMillisecondDuration(1000))
+
+	assert.Equal(t, iterations, incrementMe)
+}
+
+var incrementMe int32
+
+func doIncrement() error {
+	atomic.AddInt32(&incrementMe, 1)
+	return nil
 }

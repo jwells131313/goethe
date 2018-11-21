@@ -60,6 +60,8 @@ type Job interface {
 // TimerHeap will run methods or functions after the specified duration or at a
 // specific time.  The advantage of the TimerHeap is that the timer is only set
 // to the next job that is to be processed, thus reducing timer ticks
+//
+// NOTE: This API is currently experimental and may change in the future
 type TimerHeap interface {
 	goethe.Canceller
 
@@ -114,6 +116,8 @@ type timerHeapData struct {
 // more than one.  If the input errorChannel is not nil then if the
 // function given to the job's last return argument is a non-nill
 // implementation of error it will be put onto that channel
+//
+// NOTE: This API is currently experimental and may change in the future
 func NewTimerHeap(errorChannel chan error) TimerHeap {
 	retVal := &timerHeapData{
 		heap:         queues.NewHeap(jobComparator),
