@@ -42,7 +42,9 @@ package timers
 
 import (
 	"github.com/stretchr/testify/assert"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestTimers(t *testing.T) {
@@ -56,4 +58,41 @@ func TestTimers(t *testing.T) {
 	assert.False(t, timer.IsRunning())
 
 	assert.Equal(t, "foo", timer.GetName())
+}
+
+func getMillisecondDuration(nMillis int) time.Duration {
+	return time.Duration(nMillis) * time.Millisecond
+}
+
+func TestTimersGoOff(t *testing.T) {
+	timer := NewTimerHeap("bar", nil)
+	assert.NotNil(t, timer)
+
+	var ring1, ring2, ring3 int32
+
+	var count int32
+	job1, err := timer.AddJobByDuration(getMillisecondDuration(400), func() {
+		ring1 = atomic.AddInt32(&count, 1)
+	})
+	if !assert.Nil(t, err, "Failed due to %s", err) {
+		return
+	}
+
+	job2, err := timer.AddJobByDuration(getMillisecondDuration(300), func() {
+		ring2 = atomic.AddInt32(&count, 1)
+	})
+
+	job3, err := timer.AddJobByDuration(getMillisecondDuration(500), func() {
+		ring3 = atomic.AddInt32(&count, 1)
+	})
+
+	time.Sleep(getMillisecondDuration(1000))
+
+	assert.Equal(t, int32(2), ring1)
+	assert.Equal(t, int32(1), ring2)
+	assert.Equal(t, int32(3), ring3)
+
+	assert.False(t, job1.IsRunning())
+	assert.False(t, job2.IsRunning())
+	assert.False(t, job3.IsRunning())
 }

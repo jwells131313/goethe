@@ -45,7 +45,7 @@ import (
 	"github.com/jwells131313/goethe"
 	"github.com/jwells131313/goethe/queues"
 	"reflect"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -86,11 +86,18 @@ type TimerHeap interface {
 
 type jobData struct {
 	lock       goethe.Lock
-	timeToFire time.Time
+	id         uint64
+	timeToFire *time.Time
 	closed     bool
 	parent     *timerHeapData
 	method     interface{}
 	args       []reflect.Value
+}
+
+type timerData struct {
+	jobID    uint64
+	nextRing *time.Time
+	timer    *time.Timer
 }
 
 type timerHeapData struct {
@@ -99,7 +106,8 @@ type timerHeapData struct {
 	errorChannel chan error
 	closed       bool
 	name         string
-	cond         *sync.Cond
+	idFactory    uint64
+	tInfo        *timerData
 }
 
 // NewTimerHeap creates a Timer "heap" which is simply a set of jobs to
@@ -118,8 +126,6 @@ func NewTimerHeap(name string, errorChannel chan error) TimerHeap {
 		name:         name,
 		lock:         goethe.GG().NewGoetheLock(),
 	}
-
-	retVal.cond = sync.NewCond(retVal.lock)
 
 	return retVal
 }
@@ -185,26 +191,98 @@ func (thd *timerHeapData) GetErrorChannel() <-chan error {
 	return thd.errorChannel
 }
 
-func (thd *timerHeapData) AddJobByDuration(time.Duration, interface{}, ...interface{}) (Job, error) {
-	panic("implement me")
+func (thd *timerHeapData) AddJobByDuration(d time.Duration, method interface{}, args ...interface{}) (Job, error) {
+	return thd.AddJobByTime(time.Now().Add(d), method, args...)
 }
 
 func (thd *timerHeapData) AddJobByTime(timeToFire time.Time, method interface{}, args ...interface{}) (Job, error) {
-	values, err := getValues(method, args)
+	values, err := getValues(method, args...)
 	if err != nil {
 		return nil, err
 	}
 
+	id := atomic.AddUint64(&thd.idFactory, 1)
+
+	ttf := timeToFire
 	newJob := &jobData{
-		lock:   goethe.GG().NewGoetheLock(),
-		parent: thd,
-		method: method,
-		args:   values,
+		lock:       goethe.GG().NewGoetheLock(),
+		id:         id,
+		parent:     thd,
+		method:     method,
+		args:       values,
+		timeToFire: &ttf,
 	}
 
 	thd.heap.Add(newJob)
 
+	goethe.GG().Go(thd.scheduleNextTimer)
+
 	return newJob, nil
+}
+
+func (thd *timerHeapData) newTimerData(jobId uint64, now *time.Time, nextRing *time.Time) *timerData {
+	duration := nextRing.Sub(*now)
+	if duration <= 0 {
+		return nil
+	}
+
+	return &timerData{
+		jobID:    jobId,
+		nextRing: nextRing,
+		timer: time.AfterFunc(duration, func() {
+			goethe.GG().Go(thd.doAllCurrentJobs)
+		}),
+	}
+}
+
+func (thd *timerHeapData) scheduleNextTimer() {
+	thd.lock.WriteLock()
+	defer thd.lock.WriteUnlock()
+
+	rawJob, found := thd.heap.Peek()
+	if !found {
+		if thd.tInfo == nil {
+			// Schedule in one hour
+			now := time.Now()
+			timeToFire := now.Add(time.Hour)
+
+			thd.tInfo = thd.newTimerData(uint64(0), &now, &timeToFire)
+		}
+
+		return
+	}
+
+	job := rawJob.(*jobData)
+	if thd.tInfo == nil {
+		timeToFire := job.timeToFire
+		now := time.Now()
+
+		thd.tInfo = thd.newTimerData(job.id, &now, timeToFire)
+
+		if thd.tInfo == nil {
+			goethe.GG().Go(thd.doAllCurrentJobs)
+		}
+
+		return
+	}
+
+	if job.id == thd.tInfo.jobID {
+		// This job is already the one whose timer is going to ring
+		return
+	}
+
+	// Need to switch the timer.  First, cancel the old one
+	thd.tInfo.timer.Stop()
+	thd.tInfo = nil
+
+	timeToFire := job.timeToFire
+	now := time.Now()
+
+	thd.tInfo = thd.newTimerData(job.id, &now, timeToFire)
+
+	if thd.tInfo == nil {
+		goethe.GG().Go(thd.doAllCurrentJobs)
+	}
 }
 
 func (jd *jobData) Cancel() {
@@ -255,7 +333,7 @@ func (jd *jobData) internalIsRunning() bool {
 	jd.lock.ReadLock()
 	defer jd.lock.ReadUnlock()
 
-	return jd.closed
+	return !jd.closed
 }
 
 func (jd *jobData) GetTimeToRun() time.Time {
@@ -279,40 +357,27 @@ func (jd *jobData) internalGetTimeToRun() time.Time {
 	jd.lock.ReadLock()
 	defer jd.lock.ReadUnlock()
 
-	return jd.timeToFire
+	return *jd.timeToFire
 }
 
-func (thd *timerHeapData) timerThread() {
-	for {
-		goOn := thd.doAllCurrentJobs()
-		if !goOn {
-			return
-		}
-
-		thd.cond.Wait()
-	}
+func (jd *jobData) String() string {
+	return fmt.Sprintf("job id=%d ttf=%s", jd.id, jd.timeToFire.String())
 }
 
-func (thd *timerHeapData) doAllCurrentJobs() bool {
+func (thd *timerHeapData) doAllCurrentJobs() {
 	thd.lock.WriteLock()
 	defer thd.lock.WriteUnlock()
 
 	if thd.closed {
-		return false
+		return
 	}
 
-	gg := goethe.GG()
+	defer thd.scheduleNextTimer()
+
 	for {
 		jobRaw, found := thd.heap.Peek()
 		if !found {
-			// Check every hour, just in case
-			duration := time.Hour
-			time.AfterFunc(duration, func() {
-				gg.Go(func() {
-					thd.cond.Signal()
-				})
-			})
-			return true
+			return
 		}
 
 		job := jobRaw.(*jobData)
@@ -324,17 +389,10 @@ func (thd *timerHeapData) doAllCurrentJobs() bool {
 		}
 
 		now := time.Now()
-		timeToFire := job.GetTimeToRun()
+		timeToFire := job.timeToFire
 
-		nextRing := now.Sub(timeToFire)
-		if nextRing > 0 {
-			time.AfterFunc(nextRing, func() {
-				gg.Go(func() {
-					thd.cond.Signal()
-				})
-			})
-
-			return true
+		if now.Before(*timeToFire) {
+			return
 		}
 
 		// Clear out the job we are about to run, it's day is done
@@ -351,12 +409,13 @@ func jobComparator(a interface{}, b interface{}) int {
 	aJob := a.(*jobData)
 	bJob := b.(*jobData)
 
-	if aJob.timeToFire.After(bJob.timeToFire) {
+	if aJob.timeToFire.After(*bJob.timeToFire) {
 		return -1
 	}
-	if aJob.timeToFire.Before(bJob.timeToFire) {
+	if aJob.timeToFire.Before(*bJob.timeToFire) {
 		return 1
 	}
+
 	return 0
 }
 
