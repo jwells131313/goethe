@@ -55,8 +55,9 @@ github.com/jwells131313/goethe.GetGoethe() method.
 4. [Heap Queue](#heap)
 5. [Recursive Locks](#recursive-locks)
 6. [Thread Local Storage](#thread-local-storage)
-7. [Timers](#timers)
-8. [Thread Pools](#thread-pools)
+7. [Timer Heap](#timer-heap)
+8. [Timers](#timers)
+9. [Thread Pools](#thread-pools)
 
 ### ThreadID
 
