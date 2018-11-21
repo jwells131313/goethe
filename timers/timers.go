@@ -63,9 +63,6 @@ type Job interface {
 type TimerHeap interface {
 	goethe.Canceller
 
-	// GetName returns the name of this TimerHeap
-	GetName() string
-
 	// GetErrorChannel returns the error channel for jobs that fail
 	GetErrorChannel() <-chan error
 
@@ -116,14 +113,11 @@ type timerHeapData struct {
 // named TimerHeap, although at certain times there can ephemerally be
 // more than one.  If the input errorChannel is not nil then if the
 // function given to the job's last return argument is a non-nill
-// implementation of error it will be put onto that channel.  name
-// is purely a convenience, no check is done to ensure some other
-// timer heap with the same name doesn't already exist
-func NewTimerHeap(name string, errorChannel chan error) TimerHeap {
+// implementation of error it will be put onto that channel
+func NewTimerHeap(errorChannel chan error) TimerHeap {
 	retVal := &timerHeapData{
 		heap:         queues.NewHeap(jobComparator),
 		errorChannel: errorChannel,
-		name:         name,
 		lock:         goethe.GG().NewGoetheLock(),
 	}
 
@@ -180,10 +174,6 @@ func (thd *timerHeapData) internalChannelIsRunning() bool {
 	return !thd.closed
 }
 
-func (thd *timerHeapData) GetName() string {
-	return thd.name
-}
-
 func (thd *timerHeapData) GetErrorChannel() <-chan error {
 	thd.lock.ReadLock()
 	defer thd.lock.ReadUnlock()
@@ -220,14 +210,14 @@ func (thd *timerHeapData) AddJobByTime(timeToFire time.Time, method interface{},
 	return newJob, nil
 }
 
-func (thd *timerHeapData) newTimerData(jobId uint64, now *time.Time, nextRing *time.Time) *timerData {
+func (thd *timerHeapData) newTimerData(jobID uint64, now *time.Time, nextRing *time.Time) *timerData {
 	duration := nextRing.Sub(*now)
 	if duration <= 0 {
 		return nil
 	}
 
 	return &timerData{
-		jobID:    jobId,
+		jobID:    jobID,
 		nextRing: nextRing,
 		timer: time.AfterFunc(duration, func() {
 			goethe.GG().Go(thd.doAllCurrentJobs)
@@ -241,14 +231,7 @@ func (thd *timerHeapData) scheduleNextTimer() {
 
 	rawJob, found := thd.heap.Peek()
 	if !found {
-		if thd.tInfo == nil {
-			// Schedule in one hour
-			now := time.Now()
-			timeToFire := now.Add(time.Hour)
-
-			thd.tInfo = thd.newTimerData(uint64(0), &now, &timeToFire)
-		}
-
+		// Nothing to do, do nothing
 		return
 	}
 

@@ -48,7 +48,7 @@ import (
 )
 
 func TestTimers(t *testing.T) {
-	timer := NewTimerHeap("foo", nil)
+	timer := NewTimerHeap(nil)
 	assert.NotNil(t, timer)
 
 	assert.True(t, timer.IsRunning())
@@ -56,8 +56,6 @@ func TestTimers(t *testing.T) {
 	timer.Cancel()
 
 	assert.False(t, timer.IsRunning())
-
-	assert.Equal(t, "foo", timer.GetName())
 }
 
 func getMillisecondDuration(nMillis int) time.Duration {
@@ -65,7 +63,7 @@ func getMillisecondDuration(nMillis int) time.Duration {
 }
 
 func TestTimersGoOff(t *testing.T) {
-	timer := NewTimerHeap("bar", nil)
+	timer := NewTimerHeap(nil)
 	assert.NotNil(t, timer)
 
 	var ring1, ring2, ring3 int32
