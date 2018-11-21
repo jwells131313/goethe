@@ -109,12 +109,12 @@ type timerHeapData struct {
 	tInfo        *timerData
 }
 
-// NewTimerHeap creates a Timer "heap" which is simply a set of jobs to
+// NewTimerHeap creates a TimerHeap which is simply a set of jobs to
 // be run at some time, where the intent is to minimize the number of
 // outstanding timers.  In general there will be one timer running per
-// named TimerHeap, although at certain times there can ephemerally be
+// TimerHeap, although at certain times there can ephemerally be
 // more than one.  If the input errorChannel is not nil then if the
-// function given to the job's last return argument is a non-nill
+// function given to the job's last return argument is a non-nil
 // implementation of error it will be put onto that channel
 //
 // NOTE: This API is currently experimental and may change in the future
@@ -151,7 +151,18 @@ func (thd *timerHeapData) internalCancel() {
 	thd.lock.WriteLock()
 	defer thd.lock.WriteUnlock()
 
+	if thd.tInfo != nil {
+		thd.tInfo.timer.Stop()
+
+		thd.tInfo = nil
+	}
+
 	thd.closed = true
+
+	if thd.errorChannel != nil {
+		close(thd.errorChannel)
+	}
+
 }
 
 func (thd *timerHeapData) IsRunning() bool {

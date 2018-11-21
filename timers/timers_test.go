@@ -137,3 +137,21 @@ func doIncrement() error {
 	atomic.AddInt32(&incrementMe, 1)
 	return nil
 }
+
+func TestCancelledNotRun(t *testing.T) {
+	timer := NewTimerHeap(nil)
+
+	var didRun bool
+	job, err := timer.AddJobByDuration(time.Duration(1)*time.Second, func() {
+		didRun = true
+	})
+	if !assert.Nil(t, err) {
+		return
+	}
+
+	job.Cancel()
+
+	time.Sleep(time.Duration(2) * time.Second)
+
+	assert.False(t, didRun)
+}
