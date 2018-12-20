@@ -38,13 +38,26 @@
  * holder.
  */
 
-package queues
+package cache
 
-import "time"
+import (
+	"errors"
+	"fmt"
+	"github.com/jwells131313/goethe"
+	"sync"
+	"time"
+)
 
 // StashCreateFunction is the function that will be called, possibly in
-// separate threads, to create an entity in the FixedSizeStash
+// separate threads, to create an entity in the FixedSizeStash.  It is an
+// error to return both a nil element and nil error
 type StashCreateFunction func() (interface{}, error)
+
+var (
+	// NoElementAvailable is returned from WaitForElement when there is no available element
+	// within the given duration
+	NoElementAvailable = errors.New("There is no element currently available in the stash")
+)
 
 // FixedSizeStash is a stash of items that should be kept at a certain size
 // When an item is removed from the stash with Get a new item will be added
@@ -74,18 +87,38 @@ type FixedSizeStash interface {
 }
 
 type fixedSizeStashData struct {
-	creator      StashCreateFunction
-	desiredSize  int
-	errorChannel chan error
+	lock               goethe.Lock
+	cond               *sync.Cond
+	creator            StashCreateFunction
+	desiredSize        int
+	errorChannel       chan error
+	elements           []interface{}
+	outstandingCreates int
 }
 
-func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan error) FixedSizeStash {
-	return &fixedSizeStashData{
+// NewFixedSizeStash returns a FixedSizeStash and will immediately start creating items in the stash
+// The desired size must be at least two, and creator must not be nil.  eChan may be nil
+func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan error) (FixedSizeStash, error) {
+	if creator == nil {
+		return nil, fmt.Errorf("creator may not be nil")
+	}
+	if desiredSize < 2 {
+		return nil, fmt.Errorf("Requested size of stash (%d) must be at least two", desiredSize)
+	}
+
+	retVal := &fixedSizeStashData{
+		lock:         gd.NewGoetheLock(),
 		creator:      creator,
 		desiredSize:  desiredSize,
 		errorChannel: eChan,
+		elements:     make([]interface{}, 0),
 	}
 
+	retVal.cond = sync.NewCond(retVal.lock)
+
+	gd.Go(retVal.builder)
+
+	return retVal, nil
 }
 
 func (fssd *fixedSizeStashData) GetDesiredSize() int {
@@ -93,7 +126,27 @@ func (fssd *fixedSizeStashData) GetDesiredSize() int {
 }
 
 func (fssd *fixedSizeStashData) GetCurrentSize() int {
-	panic("implement me")
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan int)
+
+		gd.Go(fssd.channelInternalGetSize, replyChan)
+
+		return <-replyChan
+	}
+
+	return fssd.internalGetSize()
+}
+
+func (fssd *fixedSizeStashData) channelInternalGetSize(ret chan int) {
+	ret <- fssd.internalGetSize()
+}
+
+func (fssd *fixedSizeStashData) internalGetSize() int {
+	fssd.lock.ReadLock()
+	defer fssd.lock.ReadUnlock()
+
+	return len(fssd.elements)
 }
 
 func (fssd *fixedSizeStashData) GetCreateFunction() StashCreateFunction {
@@ -114,4 +167,53 @@ func (fssd *fixedSizeStashData) Get() (interface{}, bool) {
 
 func (fssd *fixedSizeStashData) WaitForElement(howLong time.Duration) (interface{}, error) {
 	panic("implement me")
+}
+
+func (fssd *fixedSizeStashData) builder() {
+	// This will call addOne probably more than it needs
+	// to, but addOne will only actually try to add one
+	// if there aren't already enough outstanding adds
+	for lcv := 0; lcv < fssd.desiredSize; lcv++ {
+		fssd.addOne()
+	}
+}
+
+func (fssd *fixedSizeStashData) addOne() {
+	fssd.lock.WriteLock()
+	defer fssd.lock.WriteUnlock()
+
+	size := len(fssd.elements)
+	totalPotential := size + fssd.outstandingCreates
+
+	if totalPotential >= fssd.desiredSize {
+		return
+	}
+
+	fssd.outstandingCreates++
+	gd.Go(fssd.createOne)
+}
+
+func (fssd *fixedSizeStashData) createOne() {
+	// Do NOT lock while doing the create
+	element, err := fssd.creator()
+	if err != nil {
+		if fssd.errorChannel != nil {
+			fssd.errorChannel <- err
+		}
+		return
+	}
+	if element == nil {
+		fssd.errorChannel <- fmt.Errorf("The creator function for a stash returned a nil element and nil error")
+	}
+
+	fssd.lock.WriteLock()
+	fssd.lock.WriteUnlock()
+
+	fssd.outstandingCreates--
+	if fssd.outstandingCreates < 0 {
+		fssd.outstandingCreates = 0
+	}
+	fssd.elements = append(fssd.elements, element)
+
+	fssd.cond.Signal()
 }

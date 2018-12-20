@@ -38,11 +38,12 @@
  * holder.
  */
 
-package queues
+package cache
 
 import (
 	"github.com/stretchr/testify/assert"
 	"testing"
+	"time"
 )
 
 func TestConstantStashOutput(t *testing.T) {
@@ -51,7 +52,10 @@ func TestConstantStashOutput(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, eChan)
+	stash, err := NewFixedSizeStash(f, 10, eChan)
+	if !assert.Nil(t, err) {
+		return
+	}
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -65,5 +69,36 @@ func TestConstantStashOutput(t *testing.T) {
 
 	assert.Equal(t, 10, stash.GetDesiredSize())
 	assert.NotNil(t, stash.GetErrorChannel())
+}
 
+func TestSizeGetsToTen(t *testing.T) {
+	f := func() (interface{}, error) {
+		return "", nil
+	}
+
+	stash, err := NewFixedSizeStash(f, 10, nil)
+	if !assert.Nil(t, err) {
+		return
+	}
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		size := stash.GetCurrentSize()
+		assert.True(t, size <= 10)
+
+		if size >= 10 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.Equal(t, 10, stash.GetCurrentSize())
+
+	time.Sleep(100 * time.Millisecond)
+
+	// Like, make sure no more are created
+	assert.Equal(t, 10, stash.GetCurrentSize())
 }
