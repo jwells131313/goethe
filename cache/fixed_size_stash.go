@@ -275,6 +275,15 @@ func (fssd *fixedSizeStashData) createOne() {
 		if fssd.errorChannel != nil {
 			fssd.errorChannel <- err
 		}
+
+		fssd.lock.WriteLock()
+		defer fssd.lock.WriteUnlock()
+
+		fssd.outstandingCreates--
+		if fssd.outstandingCreates < 0 {
+			fssd.outstandingCreates = 0
+		}
+
 		return
 	}
 	if element == nil {
