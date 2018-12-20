@@ -52,10 +52,7 @@ func TestConstantStashOutput(t *testing.T) {
 		return "", nil
 	}
 
-	stash, err := NewFixedSizeStash(f, 10, eChan)
-	if !assert.Nil(t, err) {
-		return
-	}
+	stash := NewFixedSizeStash(f, 10, eChan)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -76,10 +73,7 @@ func TestSizeGetsToTen(t *testing.T) {
 		return "", nil
 	}
 
-	stash, err := NewFixedSizeStash(f, 10, nil)
-	if !assert.Nil(t, err) {
-		return
-	}
+	stash := NewFixedSizeStash(f, 10, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -100,5 +94,88 @@ func TestSizeGetsToTen(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Like, make sure no more are created
+	assert.Equal(t, 10, stash.GetCurrentSize())
+}
+
+// TestGetAFewElements gets a few elements, but does not go over the stash size
+func TestGetAFewElements(t *testing.T) {
+	f := func() (interface{}, error) {
+		return "", nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	// sleep to give time to get elements
+	time.Sleep(100 * time.Millisecond)
+
+	for lcv := 0; lcv < 8; lcv++ {
+		elem, got := stash.Get()
+		if !assert.True(t, got) {
+			return
+		}
+		if !assert.NotNil(t, elem) {
+			return
+		}
+
+		if !assert.Equal(t, "", elem) {
+			return
+		}
+	}
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		size := stash.GetCurrentSize()
+		assert.True(t, size <= 10)
+
+		if size >= 10 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.Equal(t, 10, stash.GetCurrentSize())
+}
+
+// TestGetAFewElements gets a few elements, but does not go over the stash size
+func TestGetAFewWithWaitFor(t *testing.T) {
+	f := func() (interface{}, error) {
+		return "", nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	// No need to sleep, we give it enough time in WaitFor
+
+	for lcv := 0; lcv < 8; lcv++ {
+		elem, err := stash.WaitForElement(100 * time.Millisecond)
+		if !assert.Nil(t, err) {
+			return
+		}
+		if !assert.NotNil(t, elem) {
+			return
+		}
+
+		if !assert.Equal(t, "", elem) {
+			return
+		}
+	}
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		size := stash.GetCurrentSize()
+		assert.True(t, size <= 10)
+
+		if size >= 10 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	assert.Equal(t, 10, stash.GetCurrentSize())
 }

@@ -44,6 +44,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/jwells131313/goethe"
+	"github.com/jwells131313/goethe/timers"
 	"sync"
 	"time"
 )
@@ -81,8 +82,7 @@ type FixedSizeStash interface {
 	// Get returns an element from the stash, or false if there were no elements available
 	Get() (interface{}, bool)
 	// WaitForElement returns an element from the stash, and will block until an element becomes available
-	// A duration of zero will return immediately with an available element or an error.  A negative duration
-	// will return an error immediately without looking for an element.
+	// A duration of zero or less than zero will return immediately with an available element or an error
 	WaitForElement(howLong time.Duration) (interface{}, error)
 }
 
@@ -94,16 +94,18 @@ type fixedSizeStashData struct {
 	errorChannel       chan error
 	elements           []interface{}
 	outstandingCreates int
+	tHeap              timers.TimerHeap
 }
 
 // NewFixedSizeStash returns a FixedSizeStash and will immediately start creating items in the stash
 // The desired size must be at least two, and creator must not be nil.  eChan may be nil
-func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan error) (FixedSizeStash, error) {
+func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan error) FixedSizeStash {
 	if creator == nil {
-		return nil, fmt.Errorf("creator may not be nil")
+		panic("creator may not be nil")
 	}
 	if desiredSize < 2 {
-		return nil, fmt.Errorf("Requested size of stash (%d) must be at least two", desiredSize)
+		ec := fmt.Sprintf("Requested size of stash (%d) must be at least two", desiredSize)
+		panic(ec)
 	}
 
 	retVal := &fixedSizeStashData{
@@ -112,13 +114,14 @@ func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan 
 		desiredSize:  desiredSize,
 		errorChannel: eChan,
 		elements:     make([]interface{}, 0),
+		tHeap:        timers.NewTimerHeap(eChan),
 	}
 
 	retVal.cond = sync.NewCond(retVal.lock)
 
 	gd.Go(retVal.builder)
 
-	return retVal, nil
+	return retVal
 }
 
 func (fssd *fixedSizeStashData) GetDesiredSize() int {
@@ -165,8 +168,80 @@ func (fssd *fixedSizeStashData) Get() (interface{}, bool) {
 	return r, true
 }
 
+type waitFor struct {
+	elem interface{}
+	err  error
+}
+
 func (fssd *fixedSizeStashData) WaitForElement(howLong time.Duration) (interface{}, error) {
-	panic("implement me")
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan *waitFor)
+
+		gd.Go(fssd.channelWaitForElement, howLong, replyChan)
+
+		wf := <-replyChan
+
+		return wf.elem, wf.err
+	}
+
+	wf := fssd.internalWaitForElement(howLong)
+	return wf.elem, wf.err
+}
+
+func (fssd *fixedSizeStashData) channelWaitForElement(howLong time.Duration, ret chan *waitFor) {
+	ret <- fssd.internalWaitForElement(howLong)
+}
+
+func (fssd *fixedSizeStashData) internalWaitForElement(howLong time.Duration) *waitFor {
+	fssd.lock.WriteLock()
+	defer fssd.lock.WriteUnlock()
+
+	var job timers.Job
+	then := time.Now()
+	for {
+		size := len(fssd.elements)
+		if size > 0 {
+			e0 := fssd.elements[0]
+			fssd.elements = fssd.elements[1:]
+
+			if job != nil {
+				job.Cancel()
+			}
+
+			gd.Go(fssd.builder)
+
+			return &waitFor{
+				elem: e0,
+			}
+		}
+
+		elapsed := time.Now().Sub(then)
+		leftToWait := howLong - elapsed
+
+		if leftToWait <= 0 {
+			return &waitFor{
+				err: NoElementAvailable,
+			}
+		}
+
+		j, err := fssd.tHeap.AddJobByDuration(leftToWait, fssd.durationExpiry)
+		if err != nil {
+			return &waitFor{
+				err: err,
+			}
+		}
+
+		job = j
+		fssd.cond.Wait()
+	}
+}
+
+func (fssd *fixedSizeStashData) durationExpiry() {
+	fssd.lock.WriteLock()
+	defer fssd.lock.WriteUnlock()
+
+	fssd.cond.Signal()
 }
 
 func (fssd *fixedSizeStashData) builder() {
