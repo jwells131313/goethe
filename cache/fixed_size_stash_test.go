@@ -179,3 +179,22 @@ func TestGetAFewWithWaitFor(t *testing.T) {
 
 	assert.Equal(t, 10, stash.GetCurrentSize())
 }
+
+// TestGetAFewElements gets a few elements, but does not go over the stash size
+func TestNoElementInTime(t *testing.T) {
+	f := func() (interface{}, error) {
+		time.Sleep(5 * time.Minute)
+		return "", nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	// There isn't enough time for this to have an element, make sure we get the correct error
+	_, err := stash.WaitForElement(100 * time.Millisecond)
+	if !assert.Equal(t, err, ErrNoElementAvailable) {
+		return
+	}
+}

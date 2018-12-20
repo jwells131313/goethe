@@ -55,9 +55,9 @@ import (
 type StashCreateFunction func() (interface{}, error)
 
 var (
-	// NoElementAvailable is returned from WaitForElement when there is no available element
+	// ErrNoElementAvailable is returned from WaitForElement when there is no available element
 	// within the given duration
-	NoElementAvailable = errors.New("There is no element currently available in the stash")
+	ErrNoElementAvailable = errors.New("There is no element currently available in the stash")
 )
 
 // FixedSizeStash is a stash of items that should be kept at a certain size
@@ -221,7 +221,7 @@ func (fssd *fixedSizeStashData) internalWaitForElement(howLong time.Duration) *w
 
 		if leftToWait <= 0 {
 			return &waitFor{
-				err: NoElementAvailable,
+				err: ErrNoElementAvailable,
 			}
 		}
 
@@ -282,7 +282,7 @@ func (fssd *fixedSizeStashData) createOne() {
 	}
 
 	fssd.lock.WriteLock()
-	fssd.lock.WriteUnlock()
+	defer fssd.lock.WriteUnlock()
 
 	fssd.outstandingCreates--
 	if fssd.outstandingCreates < 0 {
