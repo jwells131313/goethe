@@ -288,6 +288,16 @@ func (fssd *fixedSizeStashData) createOne() {
 	}
 	if element == nil {
 		fssd.errorChannel <- fmt.Errorf("The creator function for a stash returned a nil element and nil error")
+
+		fssd.lock.WriteLock()
+		defer fssd.lock.WriteUnlock()
+
+		fssd.outstandingCreates--
+		if fssd.outstandingCreates < 0 {
+			fssd.outstandingCreates = 0
+		}
+
+		return
 	}
 
 	fssd.lock.WriteLock()
