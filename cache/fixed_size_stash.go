@@ -188,12 +188,21 @@ func (fssd *fixedSizeStashData) SetMaximumConcurrency(max int) {
 
 	tid := gd.GetThreadID()
 	if tid < 0 {
-		gd.Go(fssd.internalSetMaximumConcurrency, max)
+		dChan := make(chan bool)
+
+		gd.Go(fssd.channelSetMaximumConcurrency, max, dChan)
+
+		<-dChan
 
 		return
 	}
 
 	fssd.internalSetMaximumConcurrency(max)
+}
+
+func (fssd *fixedSizeStashData) channelSetMaximumConcurrency(max int, dChan chan bool) {
+	fssd.internalSetMaximumConcurrency(max)
+	dChan <- true
 }
 
 func (fssd *fixedSizeStashData) internalSetMaximumConcurrency(max int) {
