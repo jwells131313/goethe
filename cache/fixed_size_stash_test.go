@@ -42,6 +42,7 @@ package cache
 
 import (
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"testing"
 	"time"
 )
@@ -203,4 +204,38 @@ func TestNoElementInTime(t *testing.T) {
 	if !assert.Equal(t, err, ErrNoElementAvailable) {
 		return
 	}
+}
+
+// TestCheckMaximumConcurrency makes sure we only ever create ten threads
+func TestCheckMaximumConcurrency(t *testing.T) {
+	tidMap := make(map[int64]int64)
+
+	f := func() (interface{}, error) {
+		tid := gd.GetThreadID()
+		tidMap[tid] = tid
+
+		sleepTime := rand.Intn(100) + 1
+		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
+
+		return "", nil
+	}
+
+	stash := NewFixedSizeStash(f, 100, 10, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		size := stash.GetCurrentSize()
+		assert.True(t, size <= 100)
+
+		if size >= 100 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.Equal(t, 100, stash.GetCurrentSize())
+	assert.Equal(t, 10, len(tidMap), "The map size should equal the max concurrency size (%v)", tidMap)
 }

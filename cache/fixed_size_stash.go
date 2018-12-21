@@ -199,7 +199,12 @@ func (fssd *fixedSizeStashData) internalSetMaximumConcurrency(max int) {
 	fssd.lock.WriteLock()
 	defer fssd.lock.WriteUnlock()
 
+	oldValue := fssd.maxConcurrency
 	fssd.maxConcurrency = max
+
+	if oldValue < fssd.maxConcurrency {
+		gd.Go(fssd.builder)
+	}
 }
 
 func (fssd *fixedSizeStashData) channelInternalGetSize(ret chan int) {
