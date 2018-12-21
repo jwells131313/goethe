@@ -52,6 +52,7 @@ github.com/jwells131313/goethe.GetGoethe() method.
 1. [ThreadID](#threadid)
 2. [Cache](#in-memory-computable-cache)
 3. [LRU-Style CAR Cache](#car-cache)
+4. [Fixed Size Stash](#fixed-size-stash)
 4. [Heap Queue](#heap)
 5. [Recursive Locks](#recursive-locks)
 6. [Thread Local Storage](#thread-local-storage)
@@ -226,6 +227,18 @@ You can provide destructor functions to the CAR cache which will be invoked when
 the cache removes a value.  This allows users to clean up any resources held in the values of the cache
 when those values are released.  See [NewCARCacheWithDestructor](https://godoc.org/github.com/jwells131313/goethe/cache#NewCARCacheWithDestructor)
 and [NewComputeFunctionCARCacheWithDestructor](https://godoc.org/github.com/jwells131313/goethe/cache#NewComputeFunctionCARCacheWithDestructor).
+
+### Fixed Size Stash
+
+A stash is a service that keeps some fixed number of elements in the stash ready to be used when needed.
+A stash is useful for elements that have a long creation time but may need to be supplied quickly.
+
+For example, suppose you have a need to quickly provision virtual machines.  However, a virtual machine
+can take up to fifteen minutes to create.  But the system may need to provision up to 20 of them very quickly
+upon customer demand.  A stash is a good fit for this case, as the fixed size can be set to 25 which is enough
+to handle the expected burst with a little extra for good measure.  When the burst of 20 virtual machines comes
+later the stash will be ready to supply them quickly and will start to create new ones, in order to bring the
+total being held to the stashes fixed size of 25.
 
 ## Queues
 

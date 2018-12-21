@@ -158,7 +158,7 @@ type ThreadUtilities interface {
 }
 
 // Pool is used to manage a thread pool.  Every thread pool has one
-// function pool and zero or one error queue
+// function queue and zero or one error queue
 type Pool interface {
 	// IsStarted returns true if this queue has been started
 	IsStarted() bool

@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 ### Changed
+- Adding fixed size stash experimental API in queues package
 - Adding timer heap experimental API in a new timers package
 
 ## [1.3.0] - 2018-11-07
