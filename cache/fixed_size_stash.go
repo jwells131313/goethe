@@ -61,15 +61,16 @@ var (
 )
 
 // FixedSizeStash is a stash of items that should be kept at a certain size
-// When an item is removed from the stash with Get a new item will be added
-// to the stash in the background with the create function.  Using a stash
-// like this is useful when the creation time of an object is very high but
-// many of them may be needed very quickly but sporadically.  The size of the
-// stash should be determined by how high the expected peak request rate may become.
+// When an item is removed from the stash with Get or WaitForElement a new item
+// will be added to the stash in the background with the create function.  Using a
+// stash is useful when the creation time of an object is high but  many of them may be needed very quickly
+// but sporadically.  The size of the stash should be determined by how high the expected peak request
+// rate may become.
 // For example, if it takes five minutes to create one of the items in the
 // stash and its known that once an hour a burst of 15 requests come in at
 // the same time it would be good to set the size to 15 to handle all of those
-// requests quickly.  The system will run the StashCreateFunction
+// requests quickly.  The system will run the StashCreateFunction in separate goethe
+// threads, up to the maximum number of concurrent threads set on the stash
 type FixedSizeStash interface {
 	// GetDesiredSize Returns the desired size of the fixed size stash
 	GetDesiredSize() int
