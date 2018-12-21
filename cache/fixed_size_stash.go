@@ -374,6 +374,8 @@ func (fssd *fixedSizeStashData) expand() {
 	}
 
 	fssd.elements = append(fssd.elements, elem)
+
+	fssd.cond.Broadcast()
 }
 
 func (fssd *fixedSizeStashData) doGoOn() bool {

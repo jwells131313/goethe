@@ -240,6 +240,40 @@ to handle the expected burst with a little extra for good measure.  When the bur
 later the stash will be ready to supply them quickly and will start to create new ones, in order to bring the
 total being held to the stashes fixed size of 25.
 
+The following example creates a stash of size 5 but with a maximum concurrency of 1, which means that
+the method to create new elements will never be called on concurrent goroutines.  The example then
+prints out ten times from the stash.  Although the creation function works quickly it still can be caught
+behind in this example because the example ask for ten very quickly but the stash only keeps five in
+reserve:
+
+```go
+func Stash() {
+	var counter int32
+
+	f := func() (interface{}, error) {
+		val := counter
+		counter = counter + 1
+
+		return val, nil
+	}
+
+	// With a concurrency of 1 we should not need an atomic addition as only one thread
+	// should ever be making new elements
+	stash := cache.NewFixedSizeStash(f, 5, 1, nil)
+
+	for lcv := 0; lcv < 10; lcv++ {
+		raw, err := stash.WaitForElement(1 * time.Second)
+		if err != nil {
+			panic(err)
+		}
+
+		val := raw.(int32)
+
+		fmt.Println("Got value", val)
+	}
+}
+``` 
+
 ## Queues
 
 [![GoDoc](https://godoc.org/github.com/jwells131313/goethe/queues?status.svg)](https://godoc.org/github.com/jwells131313/goethe/queues)
