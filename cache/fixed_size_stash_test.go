@@ -244,10 +244,11 @@ func TestCheckMaximumConcurrency(t *testing.T) {
 
 var discoveredErrors int32
 
-// TestCheckMaximumConcurrency makes sure we only ever create ten threads
+// TestErrors puts some random errors in there
 func TestErrors(t *testing.T) {
 	tidMap := make(map[int64]int64)
 
+	discoveredErrors = 0
 	var numErrors int32
 
 	f := func() (interface{}, error) {
@@ -267,6 +268,65 @@ func TestErrors(t *testing.T) {
 	}
 
 	eChan := make(chan error, 10)
+	doneChan := make(chan bool)
+	defer func() {
+		doneChan <- true
+	}()
+
+	gd.Go(errorCounter, eChan, doneChan)
+
+	stash := NewFixedSizeStash(f, 100, 10, eChan)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		size := stash.GetCurrentSize()
+		assert.True(t, size <= 100)
+
+		if size >= 100 {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.Equal(t, 100, stash.GetCurrentSize())
+	assert.Equal(t, 10, len(tidMap), "The map size should equal the max concurrency size (%v)", tidMap)
+
+	// Sleep an extra half-second to catch straggling errors on the queue, or to see
+	// if somehow some weird extra errors show up
+	time.Sleep(500 * time.Millisecond)
+	assert.Equal(t, numErrors, discoveredErrors)
+
+}
+
+// TestPanics puts some random panics in there
+func TestPanics(t *testing.T) {
+	tidMap := make(map[int64]int64)
+
+	discoveredErrors = 0
+	var numErrors int32
+
+	f := func() (interface{}, error) {
+		tid := gd.GetThreadID()
+		tidMap[tid] = tid
+
+		sleepTime := rand.Intn(100) + 1
+		time.Sleep(time.Duration(sleepTime) * time.Millisecond)
+
+		if sleepTime%10 == 0 {
+			val := atomic.AddInt32(&numErrors, 1)
+
+			ec := fmt.Sprintf("There was an error on thread %d, number %d", tid, val)
+
+			panic(ec)
+		}
+
+		return "", nil
+	}
+
+	eChan := make(chan error)
 	doneChan := make(chan bool)
 	defer func() {
 		doneChan <- true
