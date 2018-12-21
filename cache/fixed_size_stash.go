@@ -79,6 +79,13 @@ type FixedSizeStash interface {
 	GetCreateFunction() StashCreateFunction
 	// GetErrorChannel returns the error channel for when the create function fails
 	GetErrorChannel() <-chan error
+	// GetMaximumConcurrency returns the maximum number of goroutines that will be used to create
+	// new elements.  If this is zero then this stash will no longer attempt to create new elements
+	GetMaximumConcurrency() int
+	// SetMaximumConcurrency will set the maximum number of goroutines that will be used to create
+	// new elements.  A value of zero will stop the stash from creating new elements.  A negative
+	// number will cause a panic
+	SetMaximumConcurrency(int)
 	// Get returns an element from the stash, or false if there were no elements available
 	Get() (interface{}, bool)
 	// WaitForElement returns an element from the stash, and will block until an element becomes available
@@ -91,15 +98,17 @@ type fixedSizeStashData struct {
 	cond               *sync.Cond
 	creator            StashCreateFunction
 	desiredSize        int
+	maxConcurrency     int
 	errorChannel       chan error
 	elements           []interface{}
 	outstandingCreates int
 	tHeap              timers.TimerHeap
+	numWorkers         int
 }
 
 // NewFixedSizeStash returns a FixedSizeStash and will immediately start creating items in the stash
 // The desired size must be at least two, and creator must not be nil.  eChan may be nil
-func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan error) FixedSizeStash {
+func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, maxConcurrency int, eChan chan error) FixedSizeStash {
 	if creator == nil {
 		panic("creator may not be nil")
 	}
@@ -107,14 +116,19 @@ func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, eChan chan 
 		ec := fmt.Sprintf("Requested size of stash (%d) must be at least two", desiredSize)
 		panic(ec)
 	}
+	if maxConcurrency < 0 {
+		ec := fmt.Sprintf("Requested maximum concurrency of stash (%d) must be greater than or equal to 0", maxConcurrency)
+		panic(ec)
+	}
 
 	retVal := &fixedSizeStashData{
-		lock:         gd.NewGoetheLock(),
-		creator:      creator,
-		desiredSize:  desiredSize,
-		errorChannel: eChan,
-		elements:     make([]interface{}, 0),
-		tHeap:        timers.NewTimerHeap(eChan),
+		lock:           gd.NewGoetheLock(),
+		creator:        creator,
+		desiredSize:    desiredSize,
+		maxConcurrency: maxConcurrency,
+		errorChannel:   eChan,
+		elements:       make([]interface{}, 0),
+		tHeap:          timers.NewTimerHeap(eChan),
 	}
 
 	retVal.cond = sync.NewCond(retVal.lock)
@@ -139,6 +153,53 @@ func (fssd *fixedSizeStashData) GetCurrentSize() int {
 	}
 
 	return fssd.internalGetSize()
+}
+
+func (fssd *fixedSizeStashData) GetMaximumConcurrency() int {
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		replyChan := make(chan int)
+
+		gd.Go(fssd.channelGetMaxConcurrency, replyChan)
+
+		return <-replyChan
+	}
+
+	return fssd.internalGetMaxConcurrency()
+}
+
+func (fssd *fixedSizeStashData) channelGetMaxConcurrency(ret chan int) {
+	ret <- fssd.internalGetMaxConcurrency()
+}
+
+func (fssd *fixedSizeStashData) internalGetMaxConcurrency() int {
+	fssd.lock.ReadLock()
+	defer fssd.lock.ReadUnlock()
+
+	return fssd.maxConcurrency
+}
+
+func (fssd *fixedSizeStashData) SetMaximumConcurrency(max int) {
+	if max < 0 {
+		ec := fmt.Sprintf("Requested maximum concurrency of stash (%d) must be greater than or equal to 0", max)
+		panic(ec)
+	}
+
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		gd.Go(fssd.internalSetMaximumConcurrency, max)
+
+		return
+	}
+
+	fssd.internalSetMaximumConcurrency(max)
+}
+
+func (fssd *fixedSizeStashData) internalSetMaximumConcurrency(max int) {
+	fssd.lock.WriteLock()
+	defer fssd.lock.WriteUnlock()
+
+	fssd.maxConcurrency = max
 }
 
 func (fssd *fixedSizeStashData) channelInternalGetSize(ret chan int) {
@@ -245,50 +306,39 @@ func (fssd *fixedSizeStashData) durationExpiry() {
 }
 
 func (fssd *fixedSizeStashData) builder() {
-	// This will call addOne probably more than it needs
-	// to, but addOne will only actually try to add one
-	// if there aren't already enough outstanding adds
-	for lcv := 0; lcv < fssd.desiredSize; lcv++ {
-		fssd.addOne()
-	}
-}
-
-func (fssd *fixedSizeStashData) addOne() {
 	fssd.lock.WriteLock()
 	defer fssd.lock.WriteUnlock()
 
-	size := len(fssd.elements)
-	totalPotential := size + fssd.outstandingCreates
+	for {
+		if fssd.numWorkers >= fssd.maxConcurrency {
+			return
+		}
 
-	if totalPotential >= fssd.desiredSize {
-		return
+		size := len(fssd.elements)
+		total := size + fssd.numWorkers
+
+		if total >= fssd.desiredSize {
+			return
+		}
+
+		fssd.numWorkers++
+		gd.Go(fssd.createElements)
 	}
-
-	fssd.outstandingCreates++
-	gd.Go(fssd.createOne)
 }
 
-func (fssd *fixedSizeStashData) createOne() {
-	// Do NOT lock while doing the create
-	element, err := fssd.creator()
-	if err != nil {
-		if fssd.errorChannel != nil {
-			fssd.errorChannel <- err
+func (fssd *fixedSizeStashData) createElements() {
+	for {
+		if !fssd.doGoOn() {
+			return
 		}
 
-		fssd.lock.WriteLock()
-		defer fssd.lock.WriteUnlock()
-
-		fssd.outstandingCreates--
-		if fssd.outstandingCreates < 0 {
-			fssd.outstandingCreates = 0
-		}
-
-		return
+		fssd.expand()
 	}
-	if element == nil {
-		fssd.errorChannel <- fmt.Errorf("The creator function for a stash returned a nil element and nil error")
+}
 
+func (fssd *fixedSizeStashData) expand() {
+	elem, err := fssd.createOne()
+	if err != nil {
 		fssd.lock.WriteLock()
 		defer fssd.lock.WriteUnlock()
 
@@ -307,7 +357,57 @@ func (fssd *fixedSizeStashData) createOne() {
 	if fssd.outstandingCreates < 0 {
 		fssd.outstandingCreates = 0
 	}
-	fssd.elements = append(fssd.elements, element)
 
-	fssd.cond.Signal()
+	fssd.elements = append(fssd.elements, elem)
+}
+
+func (fssd *fixedSizeStashData) doGoOn() bool {
+	fssd.lock.WriteLock()
+	defer fssd.lock.WriteUnlock()
+
+	size := len(fssd.elements)
+	totalPotential := size + fssd.outstandingCreates
+
+	if totalPotential >= fssd.desiredSize {
+		fssd.numWorkers--
+		if fssd.numWorkers < 0 {
+			fssd.numWorkers = 0
+		}
+
+		return false
+	}
+
+	fssd.outstandingCreates++
+	return true
+}
+
+func (fssd *fixedSizeStashData) createOne() (ret interface{}, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			ret = nil
+
+			err = fmt.Errorf("%v", r)
+
+			if fssd.errorChannel != nil {
+				fssd.errorChannel <- err
+			}
+		}
+	}()
+
+	ret, err = fssd.creator()
+	if err != nil {
+		if fssd.errorChannel != nil {
+			fssd.errorChannel <- err
+		}
+
+		return
+	}
+	if ret == nil {
+		err = fmt.Errorf("The creator function for a stash returned a nil element and nil error")
+		fssd.errorChannel <- err
+
+		return
+	}
+
+	return
 }

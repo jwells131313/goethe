@@ -52,7 +52,7 @@ func TestConstantStashOutput(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, eChan)
+	stash := NewFixedSizeStash(f, 10, 5, eChan)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -66,6 +66,12 @@ func TestConstantStashOutput(t *testing.T) {
 
 	assert.Equal(t, 10, stash.GetDesiredSize())
 	assert.NotNil(t, stash.GetErrorChannel())
+
+	assert.Equal(t, 5, stash.GetMaximumConcurrency())
+
+	stash.SetMaximumConcurrency(13)
+
+	assert.Equal(t, 13, stash.GetMaximumConcurrency())
 }
 
 func TestSizeGetsToTen(t *testing.T) {
@@ -73,7 +79,7 @@ func TestSizeGetsToTen(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, nil)
+	stash := NewFixedSizeStash(f, 10, 5, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -103,7 +109,7 @@ func TestGetAFewElements(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, nil)
+	stash := NewFixedSizeStash(f, 10, 5, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -145,7 +151,7 @@ func TestGetAFewWithWaitFor(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, nil)
+	stash := NewFixedSizeStash(f, 10, 5, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -187,7 +193,7 @@ func TestNoElementInTime(t *testing.T) {
 		return "", nil
 	}
 
-	stash := NewFixedSizeStash(f, 10, nil)
+	stash := NewFixedSizeStash(f, 10, 5, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
