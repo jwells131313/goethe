@@ -245,6 +245,7 @@ func TestCheckMaximumConcurrency(t *testing.T) {
 var discoveredErrors int32
 
 // TestErrors puts some random errors in there
+// The error channel is buffered here (but unbuffered in TestPanics)
 func TestErrors(t *testing.T) {
 	tidMap := make(map[int64]int64)
 
@@ -302,6 +303,7 @@ func TestErrors(t *testing.T) {
 }
 
 // TestPanics puts some random panics in there
+// The error channel is unbuffered here (but buffered in TestErrors)
 func TestPanics(t *testing.T) {
 	tidMap := make(map[int64]int64)
 
