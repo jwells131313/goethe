@@ -290,9 +290,9 @@ type stashElement struct {
 }
 
 func newStashElement() *stashElement {
-	newC := atomic.AddInt32(&countMaster, 1)
+	countMaster = countMaster + 1
 	return &stashElement{
-		counter: newC,
+		counter: countMaster,
 	}
 }
 
