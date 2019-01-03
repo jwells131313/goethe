@@ -150,9 +150,9 @@ func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, maxConcurre
 		desiredSize:    desiredSize,
 		maxConcurrency: maxConcurrency,
 		errorChannel:   eChan,
-		elements:       newDLL(),
 		tHeap:          timers.NewTimerHeap(eChan),
 	}
+	retVal.elements = newDLL(retVal)
 
 	retVal.cond = sync.NewCond(retVal.lock)
 
@@ -464,9 +464,10 @@ type dllNode struct {
 
 // dll this implementation of dll is protected by outside locks
 type dll struct {
-	head *dllNode
-	tail *dllNode
-	size int
+	head   *dllNode
+	tail   *dllNode
+	size   int
+	parent *fixedSizeStashData
 }
 
 func newDllNode(element interface{}, parent *dll) *dllNode {
@@ -476,8 +477,10 @@ func newDllNode(element interface{}, parent *dll) *dllNode {
 	}
 }
 
-func newDLL() *dll {
-	return &dll{}
+func newDLL(parent *fixedSizeStashData) *dll {
+	return &dll{
+		parent: parent,
+	}
 }
 
 func (dll *dll) Add(element interface{}) StashElementDestructor {
@@ -535,6 +538,9 @@ func (node *dllNode) DestroyElement() bool {
 
 	dll := node.parent
 	dll.size = dll.size - 1
+	if dll.parent != nil {
+		gd.Go(dll.parent.builder)
+	}
 
 	previousNode := node.prev
 	nextNode := node.next

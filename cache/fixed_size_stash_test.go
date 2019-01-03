@@ -387,7 +387,9 @@ func NewCanBeDestroyed(g map[int32]*CanBeDestroyed) *CanBeDestroyed {
 		id: nextId,
 	}
 
-	g[nextId] = rv
+	if g != nil {
+		g[nextId] = rv
+	}
 
 	return rv
 }
@@ -397,6 +399,7 @@ func (cbd *CanBeDestroyed) SetElementDestructor(sed StashElementDestructor) {
 }
 
 func TestDestructor(t *testing.T) {
+	idCounter = 0
 	createdMap := make(map[int32]*CanBeDestroyed)
 
 	f := func() (interface{}, error) {
@@ -458,8 +461,66 @@ func TestDestructor(t *testing.T) {
 	}
 }
 
+func TestStashWillRebuildAfterDestroy(t *testing.T) {
+	idCounter = 0
+	createdMap := make(map[int32]*CanBeDestroyed)
+
+	f := func() (interface{}, error) {
+		rv := NewCanBeDestroyed(createdMap)
+		return rv, nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, 5, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	var enough bool
+	for lcv := 0; lcv < 2000; lcv++ {
+		if stash.GetCurrentSize() >= 10 {
+			enough = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.True(t, enough) {
+		return
+	}
+	if !assert.Equal(t, 10, stash.GetCurrentSize()) {
+		return
+	}
+
+	nine := int32(9)
+
+	cbd, got := createdMap[nine]
+	if !assert.True(t, got) {
+		return
+	}
+
+	destroyed := cbd.destructor.DestroyElement()
+	if !assert.True(t, destroyed) {
+		return
+	}
+
+	enough = false
+	for lcv := 0; lcv < 2000; lcv++ {
+		if stash.GetCurrentSize() >= 10 {
+			enough = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.True(t, enough, "never rebuilt the stash after destruction") {
+		return
+	}
+}
+
 func TestDLLAddRemoveOne(t *testing.T) {
-	dll := newDLL()
+	dll := newDLL(nil)
 
 	if !assert.Equal(t, 0, dll.size) {
 		return
@@ -502,7 +563,7 @@ func TestDLLAddRemoveOne(t *testing.T) {
 }
 
 func TestDLLAddRemoveTwo(t *testing.T) {
-	dll := newDLL()
+	dll := newDLL(nil)
 
 	if !assert.Equal(t, 0, dll.size) {
 		return
@@ -577,7 +638,7 @@ func dOne(t *testing.T, destructor StashElementDestructor) bool {
 }
 
 func TestDLLRemoveNodes(t *testing.T) {
-	dll := newDLL()
+	dll := newDLL(nil)
 
 	if !assert.Equal(t, 0, dll.size) {
 		return
