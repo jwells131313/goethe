@@ -94,6 +94,28 @@ type FixedSizeStash interface {
 	WaitForElement(howLong time.Duration) (interface{}, error)
 }
 
+// StashElementDestructor An implementation of this interface will
+// be passed to a stash element that implements ElementDestructorSetter
+// It can be used to remove the element from the stash even if the element
+// was never given to the user via the normal stash mechanism
+type StashElementDestructor interface {
+	// Removes the element from the stash.  Returns true
+	// if the element was actually removed, or false if the
+	// element was either removed via the normal stash methods
+	// (Get or WaitForElement) or has already been destroyed
+	DestroyElement() bool
+}
+
+// ElementDestructorSetter if an element created by the create function
+// of the stash implements this interface then it will be called with
+// a method that can be used to remove that element from the stash
+type ElementDestructorSetter interface {
+	// This method will be called immediately after an element
+	// is created.  The destructor passed in can be used
+	// to remove the element from the stash
+	SetElementDestructor(StashElementDestructor)
+}
+
 type fixedSizeStashData struct {
 	lock               goethe.Lock
 	cond               *sync.Cond
@@ -427,4 +449,102 @@ func (fssd *fixedSizeStashData) createOne() (ret interface{}, err error) {
 	}
 
 	return
+}
+
+type dllNode struct {
+	payload interface{}
+	deleted bool
+	parent  *dll
+	next    *dllNode
+	prev    *dllNode
+}
+
+// dll this implementation of dll is protected by outside locks
+type dll struct {
+	head *dllNode
+	tail *dllNode
+}
+
+func newDllNode(element interface{}, parent *dll) *dllNode {
+	return &dllNode{
+		payload: element,
+		parent:  parent,
+	}
+}
+
+func newDLL() *dll {
+	return &dll{}
+}
+
+func (dll *dll) Add(element interface{}) StashElementDestructor {
+	newNode := newDllNode(element, dll)
+
+	currentHead := dll.head
+	if currentHead == nil {
+		dll.head = newNode
+		dll.tail = newNode
+		return newNode
+	}
+
+	newNode.next = currentHead
+	currentHead.prev = newNode
+
+	dll.head = newNode
+
+	return newNode
+}
+
+func (dll *dll) Remove() (interface{}, bool) {
+	currentTail := dll.tail
+	if currentTail == nil {
+		return nil, false
+	}
+
+	currentTail.deleted = true
+
+	previousNode := currentTail.prev
+	currentTail.prev = nil
+
+	if previousNode == nil {
+		// Last one
+		dll.head = nil
+		dll.tail = nil
+
+		return currentTail.payload, true
+	}
+
+	dll.tail = previousNode
+
+	previousNode.next = nil
+
+	return currentTail.payload, true
+}
+
+func (node *dllNode) DestroyElement() bool {
+	if node.deleted {
+		return false
+	}
+
+	dll := node.parent
+
+	previousNode := node.prev
+	nextNode := node.next
+
+	node.deleted = true
+	node.next = nil
+	node.prev = nil
+
+	if previousNode == nil {
+		dll.head = nextNode
+	} else {
+		previousNode.next = nextNode
+	}
+
+	if nextNode == nil {
+		dll.tail = previousNode
+	} else {
+		nextNode.prev = previousNode
+	}
+
+	return true
 }
