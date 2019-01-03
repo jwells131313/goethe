@@ -123,7 +123,7 @@ type fixedSizeStashData struct {
 	desiredSize        int
 	maxConcurrency     int
 	errorChannel       chan error
-	elements           []interface{}
+	elements           *dll
 	outstandingCreates int
 	tHeap              timers.TimerHeap
 	numWorkers         int
@@ -150,7 +150,7 @@ func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, maxConcurre
 		desiredSize:    desiredSize,
 		maxConcurrency: maxConcurrency,
 		errorChannel:   eChan,
-		elements:       make([]interface{}, 0),
+		elements:       newDLL(),
 		tHeap:          timers.NewTimerHeap(eChan),
 	}
 
@@ -247,7 +247,7 @@ func (fssd *fixedSizeStashData) internalGetSize() int {
 	fssd.lock.ReadLock()
 	defer fssd.lock.ReadUnlock()
 
-	return len(fssd.elements)
+	return fssd.elements.size
 }
 
 func (fssd *fixedSizeStashData) GetCreateFunction() StashCreateFunction {
@@ -298,10 +298,9 @@ func (fssd *fixedSizeStashData) internalWaitForElement(howLong time.Duration) *w
 	var job timers.Job
 	then := time.Now()
 	for {
-		size := len(fssd.elements)
+		size := fssd.elements.size
 		if size > 0 {
-			e0 := fssd.elements[0]
-			fssd.elements = fssd.elements[1:]
+			e0, _ := fssd.elements.Remove()
 
 			if job != nil {
 				job.Cancel()
@@ -351,7 +350,7 @@ func (fssd *fixedSizeStashData) builder() {
 			return
 		}
 
-		size := len(fssd.elements)
+		size := fssd.elements.size
 		total := size + fssd.numWorkers
 
 		if total >= fssd.desiredSize {
@@ -395,7 +394,11 @@ func (fssd *fixedSizeStashData) expand() {
 		fssd.outstandingCreates = 0
 	}
 
-	fssd.elements = append(fssd.elements, elem)
+	destructor := fssd.elements.Add(elem)
+	asInjectee, ok := elem.(ElementDestructorSetter)
+	if ok {
+		asInjectee.SetElementDestructor(destructor)
+	}
 
 	fssd.cond.Broadcast()
 }
@@ -404,7 +407,7 @@ func (fssd *fixedSizeStashData) doGoOn() bool {
 	fssd.lock.WriteLock()
 	defer fssd.lock.WriteUnlock()
 
-	size := len(fssd.elements)
+	size := fssd.elements.size
 	totalPotential := size + fssd.outstandingCreates
 
 	if totalPotential >= fssd.desiredSize {
@@ -463,6 +466,7 @@ type dllNode struct {
 type dll struct {
 	head *dllNode
 	tail *dllNode
+	size int
 }
 
 func newDllNode(element interface{}, parent *dll) *dllNode {
@@ -478,6 +482,8 @@ func newDLL() *dll {
 
 func (dll *dll) Add(element interface{}) StashElementDestructor {
 	newNode := newDllNode(element, dll)
+
+	dll.size = dll.size + 1
 
 	currentHead := dll.head
 	if currentHead == nil {
@@ -499,6 +505,8 @@ func (dll *dll) Remove() (interface{}, bool) {
 	if currentTail == nil {
 		return nil, false
 	}
+
+	dll.size = dll.size - 1
 
 	currentTail.deleted = true
 
@@ -526,6 +534,7 @@ func (node *dllNode) DestroyElement() bool {
 	}
 
 	dll := node.parent
+	dll.size = dll.size - 1
 
 	previousNode := node.prev
 	nextNode := node.next

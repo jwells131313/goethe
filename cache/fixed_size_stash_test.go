@@ -397,11 +397,6 @@ func (cbd *CanBeDestroyed) SetElementDestructor(sed StashElementDestructor) {
 }
 
 func TestDestructor(t *testing.T) {
-	if true {
-		t.Log("skipping till it works")
-		return
-	}
-
 	createdMap := make(map[int32]*CanBeDestroyed)
 
 	f := func() (interface{}, error) {
@@ -409,7 +404,7 @@ func TestDestructor(t *testing.T) {
 		return rv, nil
 	}
 
-	stash := NewFixedSizeStash(f, 5, 5, nil)
+	stash := NewFixedSizeStash(f, 10, 5, nil)
 	if !assert.NotNil(t, stash) {
 		return
 	}
@@ -446,13 +441,18 @@ func TestDestructor(t *testing.T) {
 	}
 
 	for lcv := 0; lcv < 6; lcv++ {
-		i, err := stash.Get()
-		if !assert.Nil(t, err) {
+		i, found := stash.Get()
+		if !assert.True(t, found) {
 			return
 		}
 
 		idElem := i.(*CanBeDestroyed)
 		if !assert.NotEqual(t, three, idElem.id, "the element with id 3 should have been removed") {
+			return
+		}
+
+		again := idElem.destructor.DestroyElement()
+		if !assert.False(t, again) {
 			return
 		}
 	}
