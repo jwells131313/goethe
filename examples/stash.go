@@ -46,6 +46,13 @@ import (
 	"time"
 )
 
+// Stash is example code demonstrating how to use the stash API
+// In this example we create a stash that has one concurrent thread
+// so no atomic addition is needed in the create function.  The elements
+// created for the stash have a fixed 5 second lifecycle.  After five
+// seconds the destructor method will be called and that element will no
+// longer be returned from the stash.  The size of the stash will however
+// remain at the fixed size of 5 (or be moving in that direction)
 func Stash() {
 	f := func() (interface{}, error) {
 		return newStashElement(), nil

@@ -381,14 +381,14 @@ type CanBeDestroyed struct {
 var idCounter int32
 
 func NewCanBeDestroyed(g map[int32]*CanBeDestroyed) *CanBeDestroyed {
-	nextId := atomic.AddInt32(&idCounter, 1)
+	nextID := atomic.AddInt32(&idCounter, 1)
 
 	rv := &CanBeDestroyed{
-		id: nextId,
+		id: nextID,
 	}
 
 	if g != nil {
-		g[nextId] = rv
+		g[nextID] = rv
 	}
 
 	return rv
