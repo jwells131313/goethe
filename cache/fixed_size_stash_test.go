@@ -372,3 +372,339 @@ func errorCounter(eChan chan error, doneChan chan bool) {
 		}
 	}
 }
+
+type CanBeDestroyed struct {
+	id         int32
+	destructor StashElementDestructor
+}
+
+var idCounter int32
+
+func NewCanBeDestroyed(g map[int32]*CanBeDestroyed) *CanBeDestroyed {
+	nextId := atomic.AddInt32(&idCounter, 1)
+
+	rv := &CanBeDestroyed{
+		id: nextId,
+	}
+
+	if g != nil {
+		g[nextId] = rv
+	}
+
+	return rv
+}
+
+func (cbd *CanBeDestroyed) SetElementDestructor(sed StashElementDestructor) {
+	cbd.destructor = sed
+}
+
+func TestDestructor(t *testing.T) {
+	idCounter = 0
+	createdMap := make(map[int32]*CanBeDestroyed)
+
+	f := func() (interface{}, error) {
+		rv := NewCanBeDestroyed(createdMap)
+		return rv, nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, 5, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	var cbd *CanBeDestroyed
+	var tree int32 = 3
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		three, found := createdMap[tree]
+		if found {
+			cbd = three
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.NotNil(t, cbd) {
+		return
+	}
+
+	destroyer := cbd.destructor
+	if !assert.NotNil(t, destroyer) {
+		return
+	}
+	destroyed := destroyer.DestroyElement()
+	if !assert.True(t, destroyed) {
+		return
+	}
+
+	destroyed = destroyer.DestroyElement()
+	if !assert.False(t, destroyed) {
+		return
+	}
+
+	for lcv := 0; lcv < 6; lcv++ {
+		i, found := stash.Get()
+		if !assert.True(t, found) {
+			return
+		}
+
+		idElem := i.(*CanBeDestroyed)
+		if !assert.NotEqual(t, three, idElem.id, "the element with id 3 should have been removed") {
+			return
+		}
+
+		again := idElem.destructor.DestroyElement()
+		if !assert.False(t, again) {
+			return
+		}
+	}
+}
+
+func TestStashWillRebuildAfterDestroy(t *testing.T) {
+	idCounter = 0
+	createdMap := make(map[int32]*CanBeDestroyed)
+
+	f := func() (interface{}, error) {
+		rv := NewCanBeDestroyed(createdMap)
+		return rv, nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, 5, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	var enough bool
+	for lcv := 0; lcv < 2000; lcv++ {
+		if stash.GetCurrentSize() >= 10 {
+			enough = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.True(t, enough) {
+		return
+	}
+	if !assert.Equal(t, 10, stash.GetCurrentSize()) {
+		return
+	}
+
+	nine := int32(9)
+
+	cbd, got := createdMap[nine]
+	if !assert.True(t, got) {
+		return
+	}
+
+	destroyed := cbd.destructor.DestroyElement()
+	if !assert.True(t, destroyed) {
+		return
+	}
+
+	enough = false
+	for lcv := 0; lcv < 2000; lcv++ {
+		if stash.GetCurrentSize() >= 10 {
+			enough = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.True(t, enough, "never rebuilt the stash after destruction") {
+		return
+	}
+}
+
+func TestDLLAddRemoveOne(t *testing.T) {
+	dll := newDLL(nil)
+
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	elem, found := dll.Remove()
+	if !assert.False(t, found) {
+		return
+	}
+	if !assert.Nil(t, elem) {
+		return
+	}
+
+	dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+
+	elem, found = dll.Remove()
+	if !assert.True(t, found) {
+		return
+	}
+	if !assert.Equal(t, 1, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	elem, found = dll.Remove()
+	if !assert.False(t, found) {
+		return
+	}
+	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+}
+
+func TestDLLAddRemoveTwo(t *testing.T) {
+	dll := newDLL(nil)
+
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	elem, found := dll.Remove()
+	if !assert.False(t, found) {
+		return
+	}
+	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+	dll.Add(2)
+	if !assert.Equal(t, 2, dll.size) {
+		return
+	}
+
+	elem, found = dll.Remove()
+	if !assert.True(t, found) {
+		return
+	}
+	if !assert.Equal(t, 1, elem) {
+		return
+	}
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+
+	elem, found = dll.Remove()
+	if !assert.True(t, found) {
+		return
+	}
+	if !assert.Equal(t, 2, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	elem, found = dll.Remove()
+	if !assert.False(t, found) {
+		return
+	}
+	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+}
+
+func dOne(t *testing.T, destructor StashElementDestructor) bool {
+	didDestroy := destructor.DestroyElement()
+	if !assert.True(t, didDestroy) {
+		return false
+	}
+
+	didDestroy = destructor.DestroyElement()
+	if !assert.False(t, didDestroy) {
+		return false
+	}
+
+	return false
+}
+
+func TestDLLRemoveNodes(t *testing.T) {
+	dll := newDLL(nil)
+
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	d1 := dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+	d2 := dll.Add(2)
+	if !assert.Equal(t, 2, dll.size) {
+		return
+	}
+	d3 := dll.Add(3)
+	if !assert.Equal(t, 3, dll.size) {
+		return
+	}
+	d4 := dll.Add(4)
+	if !assert.Equal(t, 4, dll.size) {
+		return
+	}
+	d5 := dll.Add(5)
+	if !assert.Equal(t, 5, dll.size) {
+		return
+	}
+
+	if !dOne(t, d3) {
+		return
+	}
+	if !assert.Equal(t, 4, dll.size) {
+		return
+	}
+	if !dOne(t, d1) {
+		return
+	}
+	if !assert.Equal(t, 3, dll.size) {
+		return
+	}
+	if !dOne(t, d5) {
+		return
+	}
+	if !assert.Equal(t, 2, dll.size) {
+		return
+	}
+	if !dOne(t, d4) {
+		return
+	}
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+	if !dOne(t, d2) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+	elem, found := dll.Remove()
+	if !assert.False(t, found) {
+		return
+	}
+	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
+}

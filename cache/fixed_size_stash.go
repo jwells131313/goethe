@@ -94,6 +94,28 @@ type FixedSizeStash interface {
 	WaitForElement(howLong time.Duration) (interface{}, error)
 }
 
+// StashElementDestructor An implementation of this interface will
+// be passed to a stash element that implements ElementDestructorSetter
+// It can be used to remove the element from the stash even if the element
+// was never given to the user via the normal stash mechanism
+type StashElementDestructor interface {
+	// Removes the element from the stash.  Returns true
+	// if the element was actually removed, or false if the
+	// element was either removed via the normal stash methods
+	// (Get or WaitForElement) or has already been destroyed
+	DestroyElement() bool
+}
+
+// ElementDestructorSetter if an element created by the create function
+// of the stash implements this interface then it will be called with
+// a method that can be used to remove that element from the stash
+type ElementDestructorSetter interface {
+	// This method will be called immediately after an element
+	// is created.  The destructor passed in can be used
+	// to remove the element from the stash
+	SetElementDestructor(StashElementDestructor)
+}
+
 type fixedSizeStashData struct {
 	lock               goethe.Lock
 	cond               *sync.Cond
@@ -101,7 +123,7 @@ type fixedSizeStashData struct {
 	desiredSize        int
 	maxConcurrency     int
 	errorChannel       chan error
-	elements           []interface{}
+	elements           *dll
 	outstandingCreates int
 	tHeap              timers.TimerHeap
 	numWorkers         int
@@ -128,9 +150,9 @@ func NewFixedSizeStash(creator StashCreateFunction, desiredSize int, maxConcurre
 		desiredSize:    desiredSize,
 		maxConcurrency: maxConcurrency,
 		errorChannel:   eChan,
-		elements:       make([]interface{}, 0),
 		tHeap:          timers.NewTimerHeap(eChan),
 	}
+	retVal.elements = newDLL(retVal)
 
 	retVal.cond = sync.NewCond(retVal.lock)
 
@@ -225,7 +247,7 @@ func (fssd *fixedSizeStashData) internalGetSize() int {
 	fssd.lock.ReadLock()
 	defer fssd.lock.ReadUnlock()
 
-	return len(fssd.elements)
+	return fssd.elements.size
 }
 
 func (fssd *fixedSizeStashData) GetCreateFunction() StashCreateFunction {
@@ -276,10 +298,9 @@ func (fssd *fixedSizeStashData) internalWaitForElement(howLong time.Duration) *w
 	var job timers.Job
 	then := time.Now()
 	for {
-		size := len(fssd.elements)
+		size := fssd.elements.size
 		if size > 0 {
-			e0 := fssd.elements[0]
-			fssd.elements = fssd.elements[1:]
+			e0, _ := fssd.elements.Remove()
 
 			if job != nil {
 				job.Cancel()
@@ -329,7 +350,7 @@ func (fssd *fixedSizeStashData) builder() {
 			return
 		}
 
-		size := len(fssd.elements)
+		size := fssd.elements.size
 		total := size + fssd.numWorkers
 
 		if total >= fssd.desiredSize {
@@ -373,7 +394,11 @@ func (fssd *fixedSizeStashData) expand() {
 		fssd.outstandingCreates = 0
 	}
 
-	fssd.elements = append(fssd.elements, elem)
+	destructor := fssd.elements.Add(elem)
+	asInjectee, ok := elem.(ElementDestructorSetter)
+	if ok {
+		asInjectee.SetElementDestructor(destructor)
+	}
 
 	fssd.cond.Broadcast()
 }
@@ -382,7 +407,7 @@ func (fssd *fixedSizeStashData) doGoOn() bool {
 	fssd.lock.WriteLock()
 	defer fssd.lock.WriteUnlock()
 
-	size := len(fssd.elements)
+	size := fssd.elements.size
 	totalPotential := size + fssd.outstandingCreates
 
 	if totalPotential >= fssd.desiredSize {
@@ -427,4 +452,114 @@ func (fssd *fixedSizeStashData) createOne() (ret interface{}, err error) {
 	}
 
 	return
+}
+
+type dllNode struct {
+	payload interface{}
+	deleted bool
+	parent  *dll
+	next    *dllNode
+	prev    *dllNode
+}
+
+// dll this implementation of dll is protected by outside locks
+type dll struct {
+	head   *dllNode
+	tail   *dllNode
+	size   int
+	parent *fixedSizeStashData
+}
+
+func newDllNode(element interface{}, parent *dll) *dllNode {
+	return &dllNode{
+		payload: element,
+		parent:  parent,
+	}
+}
+
+func newDLL(parent *fixedSizeStashData) *dll {
+	return &dll{
+		parent: parent,
+	}
+}
+
+func (dll *dll) Add(element interface{}) StashElementDestructor {
+	newNode := newDllNode(element, dll)
+
+	dll.size = dll.size + 1
+
+	currentHead := dll.head
+	if currentHead == nil {
+		dll.head = newNode
+		dll.tail = newNode
+		return newNode
+	}
+
+	newNode.next = currentHead
+	currentHead.prev = newNode
+
+	dll.head = newNode
+
+	return newNode
+}
+
+func (dll *dll) Remove() (interface{}, bool) {
+	currentTail := dll.tail
+	if currentTail == nil {
+		return nil, false
+	}
+
+	dll.size = dll.size - 1
+
+	currentTail.deleted = true
+
+	previousNode := currentTail.prev
+	currentTail.prev = nil
+
+	if previousNode == nil {
+		// Last one
+		dll.head = nil
+		dll.tail = nil
+
+		return currentTail.payload, true
+	}
+
+	dll.tail = previousNode
+
+	previousNode.next = nil
+
+	return currentTail.payload, true
+}
+
+func (node *dllNode) DestroyElement() bool {
+	if node.deleted {
+		return false
+	}
+
+	dll := node.parent
+	dll.size = dll.size - 1
+	if dll.parent != nil {
+		gd.Go(dll.parent.builder)
+	}
+
+	previousNode := node.prev
+	nextNode := node.next
+
+	node.deleted = true
+	node.next = nil
+	node.prev = nil
+
+	if previousNode == nil {
+		dll.head = nextNode
+	} else {
+		previousNode.next = nextNode
+	}
+
+	if nextNode == nil {
+		dll.tail = previousNode
+	} else {
+		nextNode.prev = previousNode
+	}
+
+	return true
 }
