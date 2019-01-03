@@ -394,7 +394,7 @@ func (fssd *fixedSizeStashData) doGoOn() bool {
 		return false
 	}
 
-	fssd.outstandingCreates++
+	fssd.outstandingCreates = fssd.outstandingCreates + 1
 	return true
 }
 
