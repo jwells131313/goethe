@@ -47,13 +47,8 @@ import (
 )
 
 func Stash() {
-	var counter int32
-
 	f := func() (interface{}, error) {
-		val := counter
-		counter = counter + 1
-
-		return val, nil
+		return newStashElement(), nil
 	}
 
 	// With a concurrency of 1 we should not need an atomic addition as only one thread
@@ -66,8 +61,27 @@ func Stash() {
 			panic(err)
 		}
 
-		val := raw.(int32)
+		val := raw.(*stashElement)
 
-		fmt.Println("Got value", val)
+		fmt.Println("Got value", val.counter)
 	}
+}
+
+var countMaster int32 = -1
+
+type stashElement struct {
+	counter int32
+}
+
+func newStashElement() *stashElement {
+	countMaster = countMaster + 1
+	return &stashElement{
+		counter: countMaster,
+	}
+}
+
+func (elem *stashElement) SetElementDestructor(sed cache.StashElementDestructor) {
+	time.AfterFunc(5*time.Second, func() {
+		sed.DestroyElement()
+	})
 }
