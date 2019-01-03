@@ -46,14 +46,16 @@ import (
 	"time"
 )
 
+// Stash is example code demonstrating how to use the stash API
+// In this example we create a stash that has one concurrent thread
+// so no atomic addition is needed in the create function.  The elements
+// created for the stash have a fixed 5 second lifecycle.  After five
+// seconds the destructor method will be called and that element will no
+// longer be returned from the stash.  The size of the stash will however
+// remain at the fixed size of 5 (or be moving in that direction)
 func Stash() {
-	var counter int32
-
 	f := func() (interface{}, error) {
-		val := counter
-		counter = counter + 1
-
-		return val, nil
+		return newStashElement(), nil
 	}
 
 	// With a concurrency of 1 we should not need an atomic addition as only one thread
@@ -66,8 +68,27 @@ func Stash() {
 			panic(err)
 		}
 
-		val := raw.(int32)
+		val := raw.(*stashElement)
 
-		fmt.Println("Got value", val)
+		fmt.Println("Got value", val.counter)
 	}
+}
+
+var countMaster int32 = -1
+
+type stashElement struct {
+	counter int32
+}
+
+func newStashElement() *stashElement {
+	countMaster = countMaster + 1
+	return &stashElement{
+		counter: countMaster,
+	}
+}
+
+func (elem *stashElement) SetElementDestructor(sed cache.StashElementDestructor) {
+	time.AfterFunc(5*time.Second, func() {
+		sed.DestroyElement()
+	})
 }

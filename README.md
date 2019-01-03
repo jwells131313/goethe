@@ -231,30 +231,40 @@ and [NewComputeFunctionCARCacheWithDestructor](https://godoc.org/github.com/jwel
 ### Fixed Size Stash
 
 A stash is a service that keeps some fixed number of elements in the stash ready to be used when needed.
-A stash is useful for elements that have a long creation time but may need to be supplied quickly.
+A stash is useful for elements that have a long creation time but need to be supplied quickly.  A stash is
+also useful if it is better to pay some cost up front rather than at the time the elements of the stash
+are used.
 
-For example, suppose you have a need to quickly provision virtual machines.  However, a virtual machine
-can take up to fifteen minutes to create.  But the system may need to provision up to 20 of them very quickly
+For example, suppose there is a need to quickly provision virtual machines.  However, a virtual machine
+can take up to fifteen minutes to create.  The system may need to provision up to 20 of them very quickly
 upon customer demand.  A stash is a good fit for this case, as the fixed size can be set to 25 which is enough
 to handle the expected burst with a little extra for good measure.  When the burst of 20 virtual machines comes
 later the stash will be ready to supply them quickly and will start to create new ones, in order to bring the
-total being held to the stashes fixed size of 25.
+total being held to the fixed size of 25.
+
+#### User Controlled Stash Decay
+
+The user can also cause the values in the stash to decay based on a policy.  If the element that is created
+by the stash create function implements the interface _cache.ElementDestructorSetter_ then after it is created
+the method _SetElementDestructor_ will be called on the element with an implementation of 
+_cache.StashElementDestructor_.  The method _DestroyElement_ can be called on that implementation whenever the
+user needs to remove an item from the cache.  The return value of _DestroyElement_ can be inspected to determine
+if the element was already removed from the stash (or had already previously been removed).
+
+In the above example it might be a good idea to refresh the stashed VMs after 24 hours so that the VMs
+can be ensured to always have the latest software patches, and never be more than one day out of date.
 
 The following example creates a stash of size 5 but with a maximum concurrency of 1, which means that
 the method to create new elements will never be called on concurrent goroutines.  The example then
 prints out ten times from the stash.  Although the creation function works quickly it still can be caught
 behind in this example because the example ask for ten very quickly but the stash only keeps five in
-reserve:
+reserve.  This stash will also replace created elements in the stash every five seconds, so no element returned
+from the cache will ever be more than five seconds old:
 
 ```go
 func Stash() {
-	var counter int32
-
 	f := func() (interface{}, error) {
-		val := counter
-		counter = counter + 1
-
-		return val, nil
+		return newStashElement(), nil
 	}
 
 	// With a concurrency of 1 we should not need an atomic addition as only one thread
@@ -267,10 +277,29 @@ func Stash() {
 			panic(err)
 		}
 
-		val := raw.(int32)
+		val := raw.(*stashElement)
 
-		fmt.Println("Got value", val)
+		fmt.Println("Got value", val.counter)
 	}
+}
+
+var countMaster int32 = -1
+
+type stashElement struct {
+	counter int32
+}
+
+func newStashElement() *stashElement {
+	countMaster = countMaster + 1
+	return &stashElement{
+		counter: countMaster,
+	}
+}
+
+func (elem *stashElement) SetElementDestructor(sed cache.StashElementDestructor) {
+	time.AfterFunc(5*time.Second, func() {
+		sed.DestroyElement()
+	})
 }
 ``` 
 
