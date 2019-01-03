@@ -461,6 +461,10 @@ func TestDestructor(t *testing.T) {
 func TestDLLAddRemoveOne(t *testing.T) {
 	dll := newDLL()
 
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
 	elem, found := dll.Remove()
 	if !assert.False(t, found) {
 		return
@@ -470,11 +474,18 @@ func TestDLLAddRemoveOne(t *testing.T) {
 	}
 
 	dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
+
 	elem, found = dll.Remove()
 	if !assert.True(t, found) {
 		return
 	}
 	if !assert.Equal(t, 1, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
 		return
 	}
 
@@ -483,6 +494,9 @@ func TestDLLAddRemoveOne(t *testing.T) {
 		return
 	}
 	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
 		return
 	}
 }
@@ -490,6 +504,10 @@ func TestDLLAddRemoveOne(t *testing.T) {
 func TestDLLAddRemoveTwo(t *testing.T) {
 	dll := newDLL()
 
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
 	elem, found := dll.Remove()
 	if !assert.False(t, found) {
 		return
@@ -497,15 +515,27 @@ func TestDLLAddRemoveTwo(t *testing.T) {
 	if !assert.Nil(t, elem) {
 		return
 	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
 
 	dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
 	dll.Add(2)
+	if !assert.Equal(t, 2, dll.size) {
+		return
+	}
 
 	elem, found = dll.Remove()
 	if !assert.True(t, found) {
 		return
 	}
 	if !assert.Equal(t, 1, elem) {
+		return
+	}
+	if !assert.Equal(t, 1, dll.size) {
 		return
 	}
 
@@ -516,12 +546,18 @@ func TestDLLAddRemoveTwo(t *testing.T) {
 	if !assert.Equal(t, 2, elem) {
 		return
 	}
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
 
 	elem, found = dll.Remove()
 	if !assert.False(t, found) {
 		return
 	}
 	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
 		return
 	}
 }
@@ -543,25 +579,59 @@ func dOne(t *testing.T, destructor StashElementDestructor) bool {
 func TestDLLRemoveNodes(t *testing.T) {
 	dll := newDLL()
 
+	if !assert.Equal(t, 0, dll.size) {
+		return
+	}
+
 	d1 := dll.Add(1)
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
 	d2 := dll.Add(2)
+	if !assert.Equal(t, 2, dll.size) {
+		return
+	}
 	d3 := dll.Add(3)
+	if !assert.Equal(t, 3, dll.size) {
+		return
+	}
 	d4 := dll.Add(4)
+	if !assert.Equal(t, 4, dll.size) {
+		return
+	}
 	d5 := dll.Add(5)
+	if !assert.Equal(t, 5, dll.size) {
+		return
+	}
 
 	if !dOne(t, d3) {
+		return
+	}
+	if !assert.Equal(t, 4, dll.size) {
 		return
 	}
 	if !dOne(t, d1) {
 		return
 	}
+	if !assert.Equal(t, 3, dll.size) {
+		return
+	}
 	if !dOne(t, d5) {
+		return
+	}
+	if !assert.Equal(t, 2, dll.size) {
 		return
 	}
 	if !dOne(t, d4) {
 		return
 	}
+	if !assert.Equal(t, 1, dll.size) {
+		return
+	}
 	if !dOne(t, d2) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
 		return
 	}
 
@@ -570,6 +640,9 @@ func TestDLLRemoveNodes(t *testing.T) {
 		return
 	}
 	if !assert.Nil(t, elem) {
+		return
+	}
+	if !assert.Equal(t, 0, dll.size) {
 		return
 	}
 
