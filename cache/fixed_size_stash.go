@@ -60,7 +60,7 @@ var (
 	ErrNoElementAvailable = errors.New("There is no element currently available in the stash")
 )
 
-// FixedSizeStash is a stash of items that should be kept at a certain size
+// FixedSizeStash is a stash of items that should be kept at a certain size.
 // When an item is removed from the stash with Get or WaitForElement a new item
 // will be added to the stash in the background with the create function.  Using a
 // stash is useful when the creation time of an object is high but  many of them may be needed very quickly
