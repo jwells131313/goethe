@@ -708,3 +708,80 @@ func TestDLLRemoveNodes(t *testing.T) {
 	}
 
 }
+
+func TestDestroyFromThreads(t *testing.T) {
+	idCounter = 0
+	createdMap := make(map[int32]*CanBeDestroyed)
+
+	f := func() (interface{}, error) {
+		rv := NewCanBeDestroyed(createdMap)
+		return rv, nil
+	}
+
+	stash := NewFixedSizeStash(f, 10, 5, nil)
+	if !assert.NotNil(t, stash) {
+		return
+	}
+
+	var cbd *CanBeDestroyed
+	var tree int32 = 3
+
+	for lcv := 0; lcv < 2000; lcv++ {
+		three, found := createdMap[tree]
+		if found {
+			cbd = three
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !assert.NotNil(t, cbd) {
+		return
+	}
+
+	destroyer := cbd.destructor
+	if !assert.NotNil(t, destroyer) {
+		return
+	}
+
+	currentCount := idCounter
+
+	// This is the test, do the actual destruction from a non-goethe thread
+	go destroyer.DestroyElement()
+
+	addedOne := false
+	for lcv := 0; lcv < 2000; lcv++ {
+		if idCounter != currentCount {
+			addedOne = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.True(t, addedOne)
+
+	cbd, found := createdMap[4]
+	if !assert.True(t, found) {
+		return
+	}
+	destroyer = cbd.destructor
+
+	currentCount = idCounter
+
+	// This is the next test, do the actual destruction from a goethe thread
+	gd.Go(destroyer.DestroyElement)
+
+	addedOne = false
+	for lcv := 0; lcv < 2000; lcv++ {
+		if idCounter != currentCount {
+			addedOne = true
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	assert.True(t, addedOne)
+}

@@ -532,6 +532,38 @@ func (dll *dll) Remove() (interface{}, bool) {
 }
 
 func (node *dllNode) DestroyElement() bool {
+	sd := node.parent.parent
+	if sd == nil {
+		// no lock needed
+		return node.internalDestroyElement()
+	}
+
+	tid := gd.GetThreadID()
+	if tid < 0 {
+		ch := make(chan bool)
+
+		gd.Go(node.channelDestroyElement, ch)
+
+		return <-ch
+	}
+
+	sd.lock.WriteLock()
+	defer sd.lock.WriteUnlock()
+
+	return node.internalDestroyElement()
+}
+
+func (node *dllNode) channelDestroyElement(ch chan bool) {
+	sd := node.parent.parent
+
+	sd.lock.WriteLock()
+	defer sd.lock.WriteUnlock()
+
+	retVal := node.internalDestroyElement()
+	ch <- retVal
+}
+
+func (node *dllNode) internalDestroyElement() bool {
 	if node.deleted {
 		return false
 	}
